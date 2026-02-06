@@ -1,0 +1,12 @@
+{
+  "id": "FEAT-001",
+  "title": "Checkout - gestione timeout provider pagamento",
+  "description": "Quando il provider di pagamento va in timeout, l'utente deve vedere un messaggio chiaro e poter riprovare senza creare ordini duplicati.",
+  "acceptanceCriteria": [
+    "Se il provider va in timeout, mostrare un messaggio di retry",
+    "Non creare l'ordine se il pagamento non è confermato",
+    "Loggare correlationId per la richiesta di pagamento",
+    "Dare la possibilità di riprovare il pagamento"
+  ],
+  "tags": ["checkout", "payment", "reliability"]
+}
