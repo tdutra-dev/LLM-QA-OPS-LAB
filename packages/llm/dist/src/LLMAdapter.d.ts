@@ -1,5 +1,4 @@
-import { FeatureSpec, TestCase } from "@llmqa/core";
+import { FeatureSpec, TestCase } from "../../core/src/index";
 export interface LLMAdapter {
     generateTestCases(spec: FeatureSpec): Promise<TestCase[]>;
 }
-//# sourceMappingURL=LLMAdapter.d.ts.map

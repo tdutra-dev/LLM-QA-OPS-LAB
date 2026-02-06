@@ -9,4 +9,3 @@ export const TestCaseSchema = z.object({
     risk: RiskSchema.default("medium"),
     createdFromFeatureId: z.string().min(1), // es: "FEAT-001"
 });
-//# sourceMappingURL=testCase.js.map

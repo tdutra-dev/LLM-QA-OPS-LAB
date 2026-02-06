@@ -6,10 +6,15 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "build": "tsc",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@llmqa/core": "workspace:*"
+    "@llmqa/core": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.9",
+    "typescript": "^5.9.3"
   }
 }

@@ -11,4 +11,3 @@ export declare const FeatureSpecSchema: z.ZodObject<{
     tags: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type FeatureSpec = z.infer<typeof FeatureSpecSchema>;
-//# sourceMappingURL=featureSpec.d.ts.map

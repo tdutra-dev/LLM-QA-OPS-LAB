@@ -1,6 +1,16 @@
+import { FeatureSpec } from "@llmqa/core";
 import { LLMAdapter } from "./LLMAdapter";
-import { FeatureSpec, TestCase } from "@llmqa/core";
 export declare class MockLLMAdapter implements LLMAdapter {
-    generateTestCases(spec: FeatureSpec): Promise<TestCase[]>;
+    private promptEngine;
+    private model;
+    generateTestCases(spec: FeatureSpec): Promise<{
+        id: string;
+        title: string;
+        steps: string[];
+        expected: string;
+        tags: string[];
+        risk: "low" | "medium" | "high";
+        createdFromFeatureId: string;
+    }[]>;
 }
 //# sourceMappingURL=MockLLMAdapter.d.ts.map

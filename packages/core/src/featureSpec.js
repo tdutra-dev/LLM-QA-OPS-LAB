@@ -10,4 +10,3 @@ export const FeatureSpecSchema = z.object({
     acceptanceCriteria: z.array(z.string().min(1)).min(1),
     tags: z.array(z.string().min(1)).default([]),
 });
-//# sourceMappingURL=featureSpec.js.map

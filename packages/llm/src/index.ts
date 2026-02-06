@@ -1,2 +1,5 @@
-export * from "./LLMAdapter";
-export * from "./MockLLMAdapter";
+// Test semplice senza dipendenze
+export const hello = "world";
+export function test() {
+  return "Hello TypeScript!";
+}

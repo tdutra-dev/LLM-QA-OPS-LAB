@@ -19,4 +19,3 @@ export declare const TestCaseSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Risk = z.infer<typeof RiskSchema>;
 export type TestCase = z.infer<typeof TestCaseSchema>;
-//# sourceMappingURL=testCase.d.ts.map
