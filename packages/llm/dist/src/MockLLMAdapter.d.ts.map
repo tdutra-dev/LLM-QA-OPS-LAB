@@ -1,0 +1,1 @@
+{"version":3,"file":"MockLLMAdapter.d.ts","sourceRoot":"","sources":["../../src/MockLLMAdapter.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,UAAU,EAAE,MAAM,cAAc,CAAC;AAC1C,OAAO,EAAE,WAAW,EAAE,QAAQ,EAAE,MAAM,aAAa,CAAC;AAEpD,qBAAa,cAAe,YAAW,UAAU;IACzC,iBAAiB,CAAC,IAAI,EAAE,WAAW,GAAG,OAAO,CAAC,QAAQ,EAAE,CAAC;CAiBhE"}

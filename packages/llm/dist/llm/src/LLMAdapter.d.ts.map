@@ -1,0 +1,1 @@
+{"version":3,"file":"LLMAdapter.d.ts","sourceRoot":"","sources":["../../../src/LLMAdapter.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,WAAW,EAAE,QAAQ,EAAE,MAAM,gBAAgB,CAAC;AAEvD,MAAM,WAAW,UAAU;IACzB,iBAAiB,CAAC,IAAI,EAAE,WAAW,GAAG,OAAO,CAAC,QAAQ,EAAE,CAAC,CAAC;CAC3D"}
