@@ -1,5 +1,5 @@
 import { FeatureSpec } from "@llmqa/core";
-import { PromptId } from "./PromptId";
+import { PromptId } from "./PromptId.js";
 export declare class PromptEngine {
     buildPrompt(id: PromptId, spec: FeatureSpec): Promise<string>;
 }

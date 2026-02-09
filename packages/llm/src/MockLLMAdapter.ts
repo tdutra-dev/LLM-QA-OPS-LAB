@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { FeatureSpec, TestCaseSchema } from "@llmqa/core";
-import { LLMAdapter } from "./LLMAdapter";
-import { PromptEngine } from "./prompt/PromptEngine";
-import { MockModelClient } from "./model/MockModelClient";
+import { LLMAdapter } from "./LLMAdapter.js";
+import { PromptEngine } from "./prompt/PromptEngine.js";
+import { MockModelClient } from "./model/MockModelClient.js";
 
 const ModelOutputSchema = z.object({
   testCases: z.array(TestCaseSchema)

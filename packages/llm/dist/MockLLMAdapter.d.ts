@@ -1,5 +1,5 @@
 import { FeatureSpec } from "@llmqa/core";
-import { LLMAdapter } from "./LLMAdapter";
+import { LLMAdapter } from "./LLMAdapter.js";
 export declare class MockLLMAdapter implements LLMAdapter {
     private promptEngine;
     private model;

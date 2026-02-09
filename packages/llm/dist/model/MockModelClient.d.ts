@@ -1,4 +1,4 @@
-import { ModelClient } from "./ModelClient";
+import { ModelClient } from "./ModelClient.js";
 /**
  * Mock deterministico: riconosce il prompt e ritorna JSON coerente.
  * In futuro, questa classe sarà sostituita da OpenAI/Anthropic/etc.

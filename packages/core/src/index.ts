@@ -1,2 +1,2 @@
-export * from "./featureSpec";
-export * from "./testCase";
+export * from "./featureSpec.js";
+export * from "./testCase.js";

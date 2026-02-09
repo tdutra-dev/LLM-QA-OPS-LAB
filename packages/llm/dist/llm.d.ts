@@ -1,4 +1,4 @@
-import { FeatureSpec, TestCase } from "./types";
+import { FeatureSpec, TestCase } from "./types.js";
 export interface LLMAdapter {
     generateTestCases(spec: FeatureSpec): Promise<TestCase[]>;
 }

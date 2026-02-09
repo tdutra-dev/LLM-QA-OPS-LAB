@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { FeatureSpec } from "@llmqa/core";
-import { PromptId, promptPath } from "./PromptId";
-import { renderTemplate } from "./render";
+import { PromptId, promptPath } from "./PromptId.js";
+import { renderTemplate } from "./render.js";
 
 export class PromptEngine {
   async buildPrompt(id: PromptId, spec: FeatureSpec): Promise<string> {

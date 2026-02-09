@@ -7,7 +7,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "demo:testcases": "node dist/cli/generate-testcases.js"
+
   },
   "dependencies": {
     "@llmqa/core": "workspace:*",

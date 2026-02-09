@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { promptPath } from "./PromptId";
-import { renderTemplate } from "./render";
+import { promptPath } from "./PromptId.js";
+import { renderTemplate } from "./render.js";
 export class PromptEngine {
     async buildPrompt(id, spec) {
         const template = await readFile(promptPath(id), "utf-8");
