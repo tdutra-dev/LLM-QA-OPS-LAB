@@ -1,3 +1,12 @@
+/**
+ * CLI demo end-to-end:
+ * - carica una FeatureSpec fixture dal package core
+ * - costruisce il prompt tramite PromptEngine (interno all'adapter)
+ * - ottiene output dall'LLM (MockModelClient)
+ * - valida e stampa TestCase[]
+ */
+
+
 import { readFile } from "node:fs/promises";
 import { FeatureSpecSchema } from "@llmqa/core";
 import { MockLLMAdapter } from "../MockLLMAdapter.js";
