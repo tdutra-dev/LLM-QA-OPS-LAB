@@ -1,9 +1,7 @@
 import { ModelClient } from "./ModelClient.js";
-/**
- * Mock deterministico: riconosce il prompt e ritorna JSON coerente.
- * In futuro, questa classe sarà sostituita da OpenAI/Anthropic/etc.
- */
 export declare class MockModelClient implements ModelClient {
-    complete(_prompt: string): Promise<string>;
+    complete(_prompt: string, opts?: {
+        signal?: AbortSignal;
+    }): Promise<string>;
 }
 //# sourceMappingURL=MockModelClient.d.ts.map

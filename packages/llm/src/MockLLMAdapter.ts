@@ -3,9 +3,11 @@ import { FeatureSpec, TestCaseSchema } from "@llmqa/core";
 import { LLMAdapter } from "./LLMAdapter.js";
 import { PromptEngine } from "./prompt/PromptEngine.js";
 import { MockModelClient } from "./model/MockModelClient.js";
+import { withFallback } from "./infra/resilience/withFallback.js";
+import { withResilience } from "./infra/resilience/withResilience.js";
 
 const ModelOutputSchema = z.object({
-  testCases: z.array(TestCaseSchema)
+  testCases: z.array(TestCaseSchema),
 });
 
 export class MockLLMAdapter implements LLMAdapter {
@@ -18,11 +20,50 @@ export class MockLLMAdapter implements LLMAdapter {
       spec
     );
 
-    const raw = await this.model.complete(prompt);
+    // 🟡 PRIMARY
+    const primaryCall = () =>
+      withResilience(
+        ({ signal }) => this.model.complete(prompt, { signal }),
+        {
+          timeoutMs: 1000,
+          maxAttempts: 3,
+          baseDelayMs: 250,
+          maxDelayMs: 4000,
+          onAttempt: ({ attempt }) =>
+            console.log(`🟡 [primary] attempt=${attempt}`),
+          onRetry: ({ attempt, delayMs, decision, err }) =>
+            console.log(
+              `🔁 [primary] retry after attempt=${attempt} delay=${delayMs} reason=${decision.reason} err=${(err as any)?.name}`
+            ),
+        }
+      );
+
+    // 🟢 SECONDARY
+    const secondaryCall = () =>
+      withResilience(
+        ({ signal }) => this.model.complete(prompt, { signal }),
+        {
+          timeoutMs: 1500,
+          maxAttempts: 1,
+          baseDelayMs: 250,
+          maxDelayMs: 4000,
+          onAttempt: ({ attempt }) =>
+            console.log(`🟢 [secondary] attempt=${attempt}`),
+        }
+      );
+
+    const raw = await withFallback(primaryCall, secondaryCall, {
+      primaryName: "mock-primary",
+      secondaryName: "mock-secondary",
+      onFallback: ({ from, to, err }) =>
+        console.log(
+          `🛟 [fallback] from=${from} to=${to} err=${(err as any)?.name}`
+        ),
+    });
+
     const parsed = JSON.parse(raw);
     const validated = ModelOutputSchema.parse(parsed);
 
-    // (Per ora il mock restituisce FEAT-001 hardcoded: lo sistemiamo subito dopo)
     return validated.testCases;
   }
 }

@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug LLM demo:testcases (dist)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/packages/llm/dist/cli/generate-testcases.js",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/packages/llm/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

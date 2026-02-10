@@ -1,3 +1,10 @@
+/**
+ * Use case: FeatureSpec -> TestCase[]
+ * 1) riceve input validato (FeatureSpec dal core)
+ * 2) chiama l'LLMAdapter (mock o reale)
+ * 3) valida l'output con schema (Zod) per renderlo "safe"
+ * 4) ritorna TestCase[] pronto per tooling/QA/automation
+ */
 import { z } from "zod";
 import { TestCaseSchema } from "@llmqa/core";
 const TestCaseArraySchema = z.array(TestCaseSchema);
