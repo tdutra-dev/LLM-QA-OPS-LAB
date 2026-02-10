@@ -26,23 +26,40 @@ let calls = 0;
 
 /**
  * MOCK modes (via env):
- * - MOCK_FAIL_FIRST=1        → solo retry (1ª call lenta)
- * - MOCK_FAIL_FIRST=3        → forza fallback se primary ha maxAttempts=3
- * - MOCK_DELAY_MS=2000       → durata "lentezza" (deve superare timeoutMs)
+ * - MOCK_FAIL_FIRST=1            → only retry (1st call is slow)
+ * - MOCK_FAIL_FIRST=3            → force fallback if primary has maxAttempts=3
+ * - MOCK_DELAY_MS=2000           → delay duration (must be > timeoutMs to trigger timeout)
+ * - MOCK_BROKEN_JSON_FIRST=1     → return invalid JSON once (to test recovery loop)
  */
 const FAIL_FIRST = Number(process.env.MOCK_FAIL_FIRST ?? "1"); // default: 1
-const DELAY_MS = Number(process.env.MOCK_DELAY_MS ?? "2000");  // default: 2000
+const DELAY_MS = Number(process.env.MOCK_DELAY_MS ?? "2000"); // default: 2000
 
+const BROKEN_JSON_FIRST = process.env.MOCK_BROKEN_JSON_FIRST === "1";
+let brokenServed = false;
+
+/**
+ * Mock deterministic provider:
+ * returns structured JSON for testCases.
+ * Later this will be replaced by real providers (OpenAI/Anthropic/etc).
+ */
 export class MockModelClient implements ModelClient {
   async complete(_prompt: string, opts?: { signal?: AbortSignal }): Promise<string> {
     calls++;
 
-    // fallisce (via lentezza/timeout) per le prime FAIL_FIRST chiamate
+    // 1) Simulate slow provider for the first FAIL_FIRST calls (to trigger timeout/retry)
     if (calls <= FAIL_FIRST) {
       console.log(`🔥 MOCK: simulo lentezza ${DELAY_MS}ms (call ${calls}/${FAIL_FIRST})`);
       await sleep(DELAY_MS, opts?.signal);
     }
 
+    // 2) Return invalid JSON once to test the output recovery loop
+    if (BROKEN_JSON_FIRST && !brokenServed) {
+      brokenServed = true;
+      console.log("🧪 MOCK: returning invalid JSON (to test recovery)");
+      return `Sure! Here is your JSON:\n{ "testCases": [ }`; // intentionally broken
+    }
+
+    // 3) Normal valid response
     return JSON.stringify(
       {
         testCases: [

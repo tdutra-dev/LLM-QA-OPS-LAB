@@ -1,0 +1,11 @@
+export function buildJsonRepairPrompt(badOutput: string): string {
+  return `
+The previous response was not valid JSON.
+
+Return ONLY valid JSON.
+Do not include explanations, markdown or extra text.
+
+Invalid response:
+${badOutput}
+`;
+}
