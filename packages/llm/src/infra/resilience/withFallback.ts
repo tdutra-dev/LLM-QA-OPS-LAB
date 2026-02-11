@@ -1,3 +1,5 @@
+import { metrics } from "../metrics/index.js";
+
 export type FallbackOptions = {
   shouldFallback?: (err: unknown) => boolean;
   onFallback?: (info: { from: string; to: string; err: unknown }) => void;
@@ -28,6 +30,8 @@ export async function withFallback<T>(
     if (!shouldFallback(err)) throw err;
 
     onFallback?.({ from: primaryName, to: secondaryName, err });
+    metrics.incFallbacks();
+    
     return await secondary();
   }
 }

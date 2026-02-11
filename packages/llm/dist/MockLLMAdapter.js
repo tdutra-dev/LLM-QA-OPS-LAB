@@ -6,6 +6,7 @@ import { withFallback } from "./infra/resilience/withFallback.js";
 import { withResilience } from "./infra/resilience/withResilience.js";
 import { buildJsonRepairPrompt } from "./output/recovery.js";
 import { safeJsonParse } from "./utils/json.js";
+import { metrics } from "./infra/metrics/index.js";
 const ModelOutputSchema = z.object({
     testCases: z.array(TestCaseSchema),
 });
@@ -44,10 +45,12 @@ export class MockLLMAdapter {
         }
         catch (err) {
             console.log("⚠️ validation failed, attempting recovery...");
+            metrics.incRecoveryAttempts();
             const repairPrompt = buildJsonRepairPrompt(raw);
             const repairedRaw = await this.model.complete(repairPrompt);
             parsed = safeJsonParse(repairedRaw);
             const validated = ModelOutputSchema.parse(parsed);
+            metrics.incRecoverySuccesses(); // counts successful recoveries
             console.log("✅ recovery successful");
             return validated.testCases;
         }

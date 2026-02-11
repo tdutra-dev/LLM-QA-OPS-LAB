@@ -1,3 +1,4 @@
+import { metrics } from "../metrics/index.js";
 const defaultShouldFallback = (err) => {
     // tipico: timeout, 429, 5xx
     const name = err?.name;
@@ -13,6 +14,7 @@ export async function withFallback(primary, secondary, opts = {}) {
         if (!shouldFallback(err))
             throw err;
         onFallback?.({ from: primaryName, to: secondaryName, err });
+        metrics.incFallbacks();
         return await secondary();
     }
 }

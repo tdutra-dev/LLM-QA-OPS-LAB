@@ -1,3 +1,4 @@
+import { metrics } from "../metrics/index.js";
 export class TimeoutError extends Error {
     constructor(message = "Operation timed out") {
         super(message);
@@ -62,6 +63,9 @@ export async function withResilience(operation, opts) {
     const { timeoutMs, maxAttempts, baseDelayMs, maxDelayMs, jitterRatio = 0.2, shouldRetry = defaultShouldRetry, onAttempt, onRetry, } = opts;
     let lastErr;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        //Increase the attempt count at the beginning of each loop, 
+        // so that it counts all attempts including the first one
+        metrics.incAttempts();
         onAttempt?.({ attempt });
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
@@ -83,6 +87,8 @@ export async function withResilience(operation, opts) {
             const delay = expBackoff(attempt, baseDelayMs, maxDelayMs);
             const delayWithJitter = addJitter(delay, jitterRatio);
             onRetry?.({ attempt, delayMs: delayWithJitter, decision, err });
+            // Increase the retry count only if a new attempt will actually be made
+            metrics.incRetries();
             await sleep(delayWithJitter);
         }
     }

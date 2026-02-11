@@ -1,3 +1,5 @@
+import { metrics } from "../metrics/index.js";
+
 export type RetryDecision = {
   retry: boolean;
   reason?: string;
@@ -109,6 +111,10 @@ export async function withResilience<T>(
   let lastErr: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    //Increase the attempt count at the beginning of each loop, 
+    // so that it counts all attempts including the first one
+    metrics.incAttempts();
+
     onAttempt?.({ attempt });
 
     const controller = new AbortController();
@@ -135,6 +141,8 @@ export async function withResilience<T>(
       const delayWithJitter = addJitter(delay, jitterRatio);
 
       onRetry?.({ attempt, delayMs: delayWithJitter, decision, err });
+      // Increase the retry count only if a new attempt will actually be made
+      metrics.incRetries();
 
       await sleep(delayWithJitter);
     }

@@ -11,6 +11,8 @@ import { z } from "zod";
 import { TestCaseSchema, type FeatureSpec, type TestCase } from "@llmqa/core";
 import type { LLMAdapter } from "../LLMAdapter.js";
 
+import { metrics } from "../infra/metrics/index.js";
+
 const TestCaseArraySchema = z.array(TestCaseSchema);
 
 export async function generateTestCases(
@@ -24,5 +26,7 @@ export async function generateTestCases(
   const parsed =
     typeof raw === "string" ? JSON.parse(raw) : raw;
 
+  console.log("\n📊 metrics:", metrics.snapshot());
+  
   return TestCaseArraySchema.parse(parsed);
 }
