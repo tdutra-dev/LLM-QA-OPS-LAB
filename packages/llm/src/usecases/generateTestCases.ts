@@ -13,6 +13,7 @@ import type { LLMAdapter } from "../LLMAdapter.js";
 
 import { metrics } from "../infra/metrics/index.js";
 import { computeKPIs } from "../infra/metrics/kpi.js";
+import { evaluateHealth } from "../infra/metrics/health.js";
 
 const TestCaseArraySchema = z.array(TestCaseSchema);
 
@@ -30,16 +31,38 @@ export async function generateTestCases(
   const snap = metrics.snapshot();
   const kpis = computeKPIs(snap);
   const formatRate = (num: number, den: number) =>
-  den === 0 ? "N/A" : ((num / den) * 100).toFixed(1) + "%";
+    den === 0 ? "N/A" : ((num / den) * 100).toFixed(1) + "%";
 
 
   console.log("\n📊 metrics:", snap);
+
   console.log("\n📊 Reliability Report");
   console.log("---------------------");
   console.log("Retry rate:", (kpis.retryRate * 100).toFixed(1) + "%");
   console.log("Fallback rate:", (kpis.fallbackRate * 100).toFixed(1) + "%");
   console.log("Recovery success rate:", formatRate(snap.recoverySuccesses, snap.recoveryAttempts));
   console.log("Avg attempts per request:", kpis.avgAttemptsPerRequest.toFixed(2));
-  
+
+  const health = evaluateHealth(snap);
+
+  console.log("\n🩺 Health:", health.status);
+  // if (health.issues.length) {
+  //   for (const issue of health.issues) {
+  //     console.log("-", issue);
+  //   }
+  // } else {
+  //   console.log("- all KPIs within thresholds");
+  // }
+
+  console.log("\n🛠 Suggested actions");
+  const unique = [...new Set(health.actions)];
+  if (unique.length) {
+    for (const a of unique) console.log("-", a);
+  } else {
+    console.log("- no actions needed");
+  }
+
+  console.log("\n\n-----------------------------\n\n");
+
   return TestCaseArraySchema.parse(parsed);
 }
