@@ -4,11 +4,13 @@ export class InMemoryMetrics {
     fallbacks = 0;
     recoveryAttempts = 0;
     recoverySuccesses = 0;
+    requests = 0;
     incAttempts() { this.attempts++; }
     incRetries() { this.retries++; }
     incFallbacks() { this.fallbacks++; }
     incRecoveryAttempts() { this.recoveryAttempts++; }
     incRecoverySuccesses() { this.recoverySuccesses++; }
+    incRequests() { this.requests++; }
     snapshot() {
         return {
             attempts: this.attempts,
@@ -16,6 +18,7 @@ export class InMemoryMetrics {
             fallbacks: this.fallbacks,
             recoveryAttempts: this.recoveryAttempts,
             recoverySuccesses: this.recoverySuccesses,
+            requests: this.requests,
         };
     }
 }

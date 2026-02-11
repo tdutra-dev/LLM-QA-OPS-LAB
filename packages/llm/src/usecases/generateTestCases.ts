@@ -12,6 +12,7 @@ import { TestCaseSchema, type FeatureSpec, type TestCase } from "@llmqa/core";
 import type { LLMAdapter } from "../LLMAdapter.js";
 
 import { metrics } from "../infra/metrics/index.js";
+import { computeKPIs } from "../infra/metrics/kpi.js";
 
 const TestCaseArraySchema = z.array(TestCaseSchema);
 
@@ -26,7 +27,19 @@ export async function generateTestCases(
   const parsed =
     typeof raw === "string" ? JSON.parse(raw) : raw;
 
-  console.log("\n📊 metrics:", metrics.snapshot());
+  const snap = metrics.snapshot();
+  const kpis = computeKPIs(snap);
+  const formatRate = (num: number, den: number) =>
+  den === 0 ? "N/A" : ((num / den) * 100).toFixed(1) + "%";
+
+
+  console.log("\n📊 metrics:", snap);
+  console.log("\n📊 Reliability Report");
+  console.log("---------------------");
+  console.log("Retry rate:", (kpis.retryRate * 100).toFixed(1) + "%");
+  console.log("Fallback rate:", (kpis.fallbackRate * 100).toFixed(1) + "%");
+  console.log("Recovery success rate:", formatRate(snap.recoverySuccesses, snap.recoveryAttempts));
+  console.log("Avg attempts per request:", kpis.avgAttemptsPerRequest.toFixed(2));
   
   return TestCaseArraySchema.parse(parsed);
 }

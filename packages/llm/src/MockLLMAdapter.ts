@@ -18,6 +18,8 @@ export class MockLLMAdapter implements LLMAdapter {
   private model = new MockModelClient();
 
   async generateTestCases(spec: FeatureSpec) {
+    metrics.incRequests();
+
     const prompt = await this.promptEngine.buildPrompt(
       { name: "generate_testcases", version: "v1" },
       spec

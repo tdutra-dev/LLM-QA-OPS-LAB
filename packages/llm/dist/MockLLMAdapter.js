@@ -14,6 +14,7 @@ export class MockLLMAdapter {
     promptEngine = new PromptEngine();
     model = new MockModelClient();
     async generateTestCases(spec) {
+        metrics.incRequests();
         const prompt = await this.promptEngine.buildPrompt({ name: "generate_testcases", version: "v1" }, spec);
         // 🟡 PRIMARY
         const primaryCall = () => withResilience(({ signal }) => this.model.complete(prompt, { signal }), {
