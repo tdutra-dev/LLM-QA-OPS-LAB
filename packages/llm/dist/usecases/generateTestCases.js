@@ -10,6 +10,7 @@ import { TestCaseSchema } from "@llmqa/core";
 import { metrics } from "../infra/metrics/index.js";
 import { computeKPIs } from "../infra/metrics/kpi.js";
 import { evaluateHealth } from "../infra/metrics/health.js";
+import { AlertEngine, ConsoleNotifier } from "../infra/alerting/index.js";
 const TestCaseArraySchema = z.array(TestCaseSchema);
 export async function generateTestCases(llm, spec) {
     const raw = await llm.generateTestCases(spec);
@@ -44,6 +45,13 @@ export async function generateTestCases(llm, spec) {
     else {
         console.log("- no actions needed");
     }
+    const alertEngine = new AlertEngine(new ConsoleNotifier(), { cooldownMs: 60_000 });
+    await alertEngine.evaluateHealth({
+        status: health.status,
+        actions: health.actions,
+        issues: health.issues //,
+        //kpis: health.kpis, // only if your health object includes it; otherwise remove this
+    });
     console.log("\n\n-----------------------------\n\n");
     return TestCaseArraySchema.parse(parsed);
 }
