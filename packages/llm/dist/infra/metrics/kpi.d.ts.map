@@ -1,1 +1,0 @@
-{"version":3,"file":"kpi.d.ts","sourceRoot":"","sources":["../../../src/infra/metrics/kpi.ts"],"names":[],"mappings":"AAAA,wBAAgB,WAAW,CAAC,CAAC,EAAE;IAC7B,QAAQ,EAAE,MAAM,CAAC;IACjB,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,gBAAgB,EAAE,MAAM,CAAC;IACzB,iBAAiB,EAAE,MAAM,CAAC;CAC3B;;;;;EASA"}
