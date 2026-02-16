@@ -40,6 +40,12 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', '**/dist/', '**/*.d.ts'],
+     ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/.vite/**",
+      "**/coverage/**",
+      "pnpm-lock.yaml",
+    ],
   },
 ];
