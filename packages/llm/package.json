@@ -8,8 +8,9 @@
   "scripts": {
     "build": "tsc",
     "check": "tsc --noEmit",
-    "demo:testcases": "node dist/cli/generate-testcases.js"
-
+    "demo:testcases": "node dist/cli/generate-testcases.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@llmqa/core": "workspace:*",

@@ -72,7 +72,7 @@ export class MockLLMAdapter implements LLMAdapter {
       const validated = ModelOutputSchema.parse(parsed);
       return validated.testCases;
     } catch (err) {
-      console.log("⚠️ validation failed, attempting recovery...");
+      console.log("⚠️ validation failed, attempting recovery...", err);
       metrics.incRecoveryAttempts();
 
       const repairPrompt = buildJsonRepairPrompt(raw);
