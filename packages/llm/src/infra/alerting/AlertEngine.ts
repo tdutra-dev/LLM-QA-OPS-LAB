@@ -1,4 +1,10 @@
-import type { AlertEvent, HealthSnapshot, Notifier } from "./types";
+import type { AlertEvent, HealthSnapshot, Notifier } from "./types.js";
+import type { CopilotInput } from "../copilot/types.js";
+import { IncidentCopilot, formatCopilotReport } from "../copilot/index.js";
+
+function num(v: unknown, fallback = 0): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
 
 type AlertEngineOptions = {
   cooldownMs?: number; // avoid spamming
@@ -9,15 +15,31 @@ export class AlertEngine {
   private cooldownMs: number;
 
   constructor(private notifier: Notifier, opts: AlertEngineOptions = {}) {
-    this.cooldownMs = opts.cooldownMs ?? 60_000; // 1 min default
+    this.cooldownMs = opts.cooldownMs ?? 60_000;
   }
 
-  /**
-   * MVP rule:
-   * - if health is CRITICAL -> fire alert (with cooldown)
-   */
   async evaluateHealth(health: HealthSnapshot): Promise<void> {
     if (health.status !== "CRITICAL") return;
+
+    const copilot = new IncidentCopilot(undefined);
+
+    const kpis = health.kpis ?? {};
+
+    const copilotInput = {
+      service: "llm-pipeline",
+      environment: "local",
+      healthStatus: health.status,
+      kpis: {
+        retryRate: num(kpis.retryRate, 0),
+        fallbackRate: num(kpis.fallbackRate, 0),
+        avgAttempts: num(kpis.avgAttempts, 0),
+      },
+      issues: health.issues ?? [],
+      timestamp: Date.now(),
+    } satisfies CopilotInput;
+
+    const copilotOutput = await copilot.analyze(copilotInput);
+    console.log(formatCopilotReport(copilotInput, copilotOutput));
 
     const event: AlertEvent = {
       name: "LLM_HEALTH_CRITICAL",
@@ -28,6 +50,7 @@ export class AlertEngine {
         actions: health.actions ?? [],
         issues: health.issues ?? [],
         kpis: health.kpis ?? {},
+        copilot: copilotOutput,
       },
     };
 

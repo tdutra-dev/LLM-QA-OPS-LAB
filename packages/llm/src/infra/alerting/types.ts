@@ -1,19 +1,36 @@
+import type { CopilotOutput } from "../copilot/types.js";
+
 export type HealthStatus = "OK" | "WARN" | "CRITICAL";
+
+export type HealthKpis = {
+  retryRate?: number;
+  fallbackRate?: number;
+  avgAttempts?: number;
+  recoveryFailRate?: number;
+  [key: string]: unknown;
+};
 
 export type HealthSnapshot = {
   status: HealthStatus;
-  // optional fields (useful for richer alerts)
   actions?: string[];
   issues?: string[];
-  kpis?: Record<string, unknown>;
+  kpis?: HealthKpis;
+  copilot?: CopilotOutput;
+};
+
+export type AlertContext = {
+  actions?: string[];
+  issues?: string[];
+  kpis?: HealthKpis;
+  copilot?: CopilotOutput;
 };
 
 export type AlertEvent = {
-  name: string;            // e.g. "LLM_HEALTH_CRITICAL"
+  name: string;
   severity: "info" | "warn" | "critical";
   message: string;
   timestamp: number;
-  context?: Record<string, unknown>;
+  context?: AlertContext;
 };
 
 export interface Notifier {
