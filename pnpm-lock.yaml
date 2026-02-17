@@ -56,6 +56,22 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/sim:
+    dependencies:
+      '@llmqa/core':
+        specifier: workspace:*
+        version: link:../core
+      '@llmqa/llm':
+        specifier: workspace:*
+        version: link:../llm
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.9
+        version: 22.19.9
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
 packages:
 
   '@esbuild/aix-ppc64@0.21.5':

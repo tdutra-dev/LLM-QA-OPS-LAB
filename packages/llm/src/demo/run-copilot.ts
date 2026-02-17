@@ -1,7 +1,8 @@
 import { AlertEngine } from "../infra/alerting/AlertEngine.js";
+import type { AlertEvent } from "../infra/alerting/types.js";
 
 const notifier = {
-  notify(event: any) {
+  notify(event: AlertEvent) {
     console.log("🚨 ALERT FIRED:", event.name);
   },
 };

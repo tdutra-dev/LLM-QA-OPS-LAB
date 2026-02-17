@@ -1,0 +1,23 @@
+{
+  "name": "@llmqa/sim",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "simulate": "node dist/simulate.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@llmqa/core": "workspace:*",
+    "@llmqa/llm": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.9",
+    "typescript": "^5.9.3"
+  }
+}

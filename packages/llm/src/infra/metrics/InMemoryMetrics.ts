@@ -16,6 +16,15 @@ export class InMemoryMetrics {
 
     incRequests() { this.requests++; }
 
+    reset() {
+        this.attempts = 0;
+        this.retries = 0;
+        this.fallbacks = 0;
+        this.recoveryAttempts = 0;
+        this.recoverySuccesses = 0;
+        this.requests = 0;
+    }
+
     snapshot() {
         return {
             attempts: this.attempts,
