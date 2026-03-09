@@ -1,30 +1,75 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
-Health = Literal["OK", "DEGRADED", "CRITICAL"]
+
+IncidentType = Literal[
+    "technical_error",
+    "schema_error",
+    "semantic_error",
+    "degradation",
+]
+
+Severity = Literal["low", "medium", "high", "critical"]
+
+EvaluationStatus = Literal["ok", "needs_attention", "critical"]
+
+SuggestedAction = Literal[
+    "monitor",
+    "retry",
+    "inspect_prompt",
+    "inspect_schema",
+    "check_provider",
+    "escalate",
+]
+
+HealthStatus = Literal["healthy", "degraded", "unstable", "critical"]
+
+HealthTrend = Literal["stable", "improving", "worsening"]
 
 
-class RunResult(BaseModel):
-    ok: bool
-    latencyMs: int = Field(ge=0)
-    usedFallback: bool = False
-    errorType: Optional[str] = None
+class StandardIncident(BaseModel):
+    id: str
+    timestamp: str
+    workflow: str
+    stage: str
+
+    incidentType: IncidentType
+    category: str
+    severity: Severity
+
+    source: str
+    message: str
+    context: dict[str, Any] | None = None
 
 
-class EvaluateRequest(BaseModel):
-    windowId: str
-    results: list[RunResult]
+class RequestMeta(BaseModel):
+    sourceSystem: str | None = None
+    requestedBy: str | None = None
+    correlationId: str | None = None
 
 
-class KPIs(BaseModel):
-    errorRate: float = Field(ge=0.0, le=1.0)
-    avgLatency: float = Field(ge=0.0)
-    fallbackRate: float = Field(ge=0.0, le=1.0)
+class EvaluationRequest(BaseModel):
+    incident: StandardIncident
+    requestMeta: RequestMeta | None = None
 
 
-class EvaluateResponse(BaseModel):
-    health: Health
-    kpis: KPIs
-    reason: str
+class EvaluationResult(BaseModel):
+    status: EvaluationStatus
+    score: int = Field(ge=0, le=100)
+    summary: str
+    reasoning: str | None = None
+    suggestedAction: SuggestedAction | None = None
+    tags: list[str] | None = None
+
+
+class WorkflowHealth(BaseModel):
+    workflow: str
+    status: HealthStatus
+    score: int = Field(ge=0, le=100)
+    trend: HealthTrend
+    recentIncidentCount: int = Field(ge=0)
+    summary: str
+    timestamp: str | None = None

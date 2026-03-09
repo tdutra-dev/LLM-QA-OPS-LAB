@@ -13,3 +13,9 @@ $(VENV)/bin/python:
 
 clean:
 	rm -rf $(VENV)
+
+run:
+	$(VENV)/bin/python -m uvicorn eval_py.main:app --reload --port 8010
+
+test:
+	$(VENV)/bin/python -m pytest -q	

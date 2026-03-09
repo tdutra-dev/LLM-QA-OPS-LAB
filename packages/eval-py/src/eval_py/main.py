@@ -1,24 +1,18 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from pydantic import BaseModel
 
 from .engine import evaluate
-from .models import EvaluateRequest, EvaluateResponse
+from .models import EvaluationRequest, EvaluationResult
 
-app = FastAPI(title="LLM-QA-OPS eval-py", version="0.1.0")
-
-
-class HealthResponse(BaseModel):
-    status: str
-    version: str
+app = FastAPI(title="LLM-QA-OPS Evaluation Service", version="0.1.0")
 
 
-@app.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    return HealthResponse(status="ok", version="0.1.0")
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
-@app.post("/evaluate", response_model=EvaluateResponse)
-def evaluate_endpoint(req: EvaluateRequest) -> EvaluateResponse:
+@app.post("/evaluate", response_model=EvaluationResult)
+def evaluate_endpoint(req: EvaluationRequest) -> EvaluationResult:
     return evaluate(req)
