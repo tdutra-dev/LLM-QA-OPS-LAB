@@ -1,8 +1,8 @@
 # LLM-QA-OPS-LAB
 
-LLM-QA-OPS-LAB is an experimental framework for building **reliable LLM-powered systems**.
+LLM-QA-OPS-LAB is an operational intelligence layer for LLM-powered systems.
 
-The project explores how Large Language Models can be treated as **operational components inside backend architectures**, rather than simple prompt interfaces.
+The project explores how Large Language Models can be integrated into backend architectures with structured validation, reliability evaluation, and runtime diagnostics, enabling more robust and observable AI workflows.
 
 Instead of focusing only on prompting, this project focuses on:
 
