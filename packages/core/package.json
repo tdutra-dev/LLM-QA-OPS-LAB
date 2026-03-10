@@ -8,10 +8,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "demo:evaluate": "pnpm --filter @llmqa/contracts build && pnpm run build && node dist/evaluation/demoEvaluate.js",
+    "demo:evaluate:src": "pnpm --filter @llmqa/contracts build && tsx src/evaluation/demoEvaluate.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@llmqa/contracts": "workspace:*",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.9",
+    "tsx": "^4.21.0"
   }
 }
