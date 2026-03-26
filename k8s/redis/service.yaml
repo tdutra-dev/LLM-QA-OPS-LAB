@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# redis/service.yaml — ClusterIP service for Redis
+#
+# Internal DNS: redis-svc.llmqa.svc.cluster.local
+# Short form (within the same namespace): redis-svc
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-svc
+  namespace: llmqa
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP

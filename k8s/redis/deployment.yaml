@@ -1,0 +1,60 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# redis/deployment.yaml — Redis 7 in-memory cache
+#
+# Single-replica, ephemeral (no PVC): cache is warm-up data only.
+# For HA consider Redis Sentinel or Cluster via Bitnami Helm chart.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: llmqa
+  labels:
+    app: redis
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+
+          command:
+            - redis-server
+            - --appendonly
+            - "no"           # disable AOF — this is a cache, not a primary store
+            - --maxmemory
+            - "128mb"
+            - --maxmemory-policy
+            - "allkeys-lru"  # evict least-recently-used keys under memory pressure
+
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "192Mi"

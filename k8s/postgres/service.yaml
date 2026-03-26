@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# postgres/service.yaml — ClusterIP service for PostgreSQL
+#
+# Internal DNS: postgres-svc.llmqa.svc.cluster.local
+# Short form (within the same namespace): postgres-svc
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-svc
+  namespace: llmqa
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ingress.yaml — Nginx Ingress for external access
+#
+# Routes:
+#   /      → dash-app:8050   (dashboard frontend)
+#   /api/  → eval-py:8010    (FastAPI backend)
+#
+# Prerequisites:
+#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+#
+# Or for local dev:
+#   minikube addons enable ingress
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: llmqa-ingress
+  namespace: llmqa
+  labels:
+    app.kubernetes.io/part-of: llm-qa-ops
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: llmqa.local                    # Add "127.0.0.1 llmqa.local" to /etc/hosts for local dev
+      http:
+        paths:
+          # ── Dashboard frontend ────────────────────────────────────────────
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dash-app-svc
+                port:
+                  number: 8050
+
+          # ── FastAPI backend ────────────────────────────────────────────────
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: eval-py-svc
+                port:
+                  number: 8010
+
+  # ── Optional TLS for production ──────────────────────────────────────────────
+  # tls:
+  #   - hosts:
+  #       - llmqa.local
+  #     secretName: llmqa-tls

@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# eval-py/service.yaml — Service for the FastAPI evaluation engine
+#
+# ClusterIP for internal access (dashboard → eval-py).
+# The Ingress exposes /api/* externally (see ingress.yaml).
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: eval-py-svc
+  namespace: llmqa
+  labels:
+    app: eval-py
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  type: ClusterIP
+  selector:
+    app: eval-py
+  ports:
+    - name: http
+      port: 8010
+      targetPort: 8010
+      protocol: TCP

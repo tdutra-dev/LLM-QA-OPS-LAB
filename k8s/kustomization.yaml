@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# kustomization.yaml — Kustomize descriptor for llmqa namespace
+#
+# Apply all K8s manifests with:
+#   kubectl apply -k k8s/
+#
+# Or manually:
+#   kubectl apply -f k8s/namespace.yaml
+#   kubectl apply -f k8s/configmap.yaml
+#   kubectl apply -f k8s/secret.yaml
+#   kubectl apply -f k8s/postgres/
+#   kubectl apply -f k8s/redis/  
+#   kubectl apply -f k8s/eval-py/
+#   kubectl apply -f k8s/dash-app/
+#   kubectl apply -f k8s/ingress.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: llmqa
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - postgres/pvc.yaml
+  - postgres/deployment.yaml
+  - postgres/service.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
+  - eval-py/deployment.yaml
+  - eval-py/service.yaml
+  - dash-app/deployment.yaml
+  - dash-app/service.yaml
+  - ingress.yaml
+
+images:
+  - name: llmqa/eval-py
+    newTag: latest
+  - name: llmqa/dash-app
+    newTag: latest

@@ -1,0 +1,24 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# dash-app/service.yaml — Service for the Dash dashboard
+#
+# NodePort for local cluster access (minikube/kind).
+# For cloud deployments change type to LoadBalancer or use the Ingress.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: dash-app-svc
+  namespace: llmqa
+  labels:
+    app: dash-app
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  type: NodePort
+  selector:
+    app: dash-app
+  ports:
+    - name: http
+      port: 8050
+      targetPort: 8050
+      nodePort: 30050   # access via http://<node-ip>:30050
+      protocol: TCP

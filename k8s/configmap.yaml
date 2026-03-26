@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# configmap.yaml — non-sensitive configuration
+#
+# Centralises all environment variables that are safe to store in plain text.
+# Sensitive values (passwords, API keys) live in secret.yaml.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llmqa-config
+  namespace: llmqa
+  labels:
+    app.kubernetes.io/part-of: llm-qa-ops
+data:
+  # ── PostgreSQL connection (non-secret parts) ─────────────────────────────
+  POSTGRES_USER: "llmqa"
+  POSTGRES_DB:   "llmqa"
+  POSTGRES_HOST: "postgres-svc"
+  POSTGRES_PORT: "5432"
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  REDIS_URL: "redis://redis-svc:6379"
+
+  # ── FastAPI service ──────────────────────────────────────────────────────
+  APP_PORT: "8010"
+  APP_LOG_LEVEL: "info"
+
+  # ── Dash dashboard ───────────────────────────────────────────────────────
+  EVAL_API_URL: "http://eval-py-svc:8010"
+  DASH_PORT: "8050"

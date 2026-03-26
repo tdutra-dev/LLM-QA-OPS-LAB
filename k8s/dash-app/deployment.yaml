@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# dash-app/deployment.yaml — Dash interactive dashboard
+#
+# Image: llmqa/dash-app:latest (built from packages/dash-app/Dockerfile)
+# Build:  docker build -t llmqa/dash-app:latest packages/dash-app/
+#
+# Reads EVAL_API_URL from ConfigMap to reach the eval-py FastAPI service.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dash-app
+  namespace: llmqa
+  labels:
+    app: dash-app
+    version: "0.1.0"
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dash-app
+  template:
+    metadata:
+      labels:
+        app: dash-app
+        version: "0.1.0"
+    spec:
+
+      # ── Wait for eval-py before starting the dashboard ─────────────────────
+      initContainers:
+        - name: wait-for-eval-py
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for eval-py FastAPI..."
+              until nc -z eval-py-svc 8010; do
+                sleep 3
+              done
+              echo "eval-py is up."
+
+      containers:
+        - name: dash-app
+          image: llmqa/dash-app:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8050
+              name: http
+
+          env:
+            - name: EVAL_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: llmqa-config
+                  key: EVAL_API_URL
+
+            - name: DASH_DEBUG
+              value: "false"
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8050
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8050
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

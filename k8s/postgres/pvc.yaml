@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# postgres/pvc.yaml — PersistentVolumeClaim for PostgreSQL data
+#
+# Requests 2Gi of ReadWriteOnce storage.
+# The actual StorageClass used depends on your cluster:
+#   - local dev (kind/minikube): standard or hostpath
+#   - AWS EKS: gp2 / gp3
+#   - GKE: standard / premium-rwo
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: llmqa
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  # Uncomment and set a specific StorageClass if needed:
+  # storageClassName: gp3

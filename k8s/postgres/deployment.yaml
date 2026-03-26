@@ -1,0 +1,91 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# postgres/deployment.yaml — PostgreSQL 16 stateful workload
+#
+# Uses a single-replica Deployment backed by a PVC for persistence.
+# For production consider a StatefulSet or managed RDS/Cloud SQL.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: llmqa
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: llm-qa-ops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  strategy:
+    type: Recreate            # safe for single-replica stateful DB (no split-brain)
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: llmqa-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: llmqa-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: llmqa-secret
+                  key: POSTGRES_PASSWORD
+
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+
+          # Readiness: wait until PostgreSQL accepts connections
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - llmqa
+                - -d
+                - llmqa
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+
+          # Liveness: restart if it stops accepting connections for too long
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - llmqa
+                - -d
+                - llmqa
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-pvc
