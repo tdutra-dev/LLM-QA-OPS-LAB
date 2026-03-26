@@ -150,3 +150,26 @@ class AnalyticsReport(BaseModel):
     rollingAvgScore: list[float]             # last N rolling-avg values
     severityDistrib: list[SeverityBucket]
     workflowFailure: list[WorkflowFailureRate]
+
+
+# ─── Step 7: ActionExecutor models ───────────────────────────────────────────
+
+ActionOutcome = Literal["success", "failed", "skipped"]
+
+
+class ActionLog(BaseModel):
+    """
+    Audit record of a single autonomous action executed by the ActionExecutor.
+
+    Every POST /evaluate with a non-'ok' result produces one ActionLog entry.
+    The full history is queryable via GET /actions, giving the system a
+    complete audit trail of every autonomous decision it made.
+    """
+    actionId: str              # unique ID e.g. "act_a1b2c3d4"
+    recordId: str              # which evaluation triggered this action
+    executedAt: str            # ISO 8601 timestamp
+    actionType: SuggestedAction
+    outcome: ActionOutcome     # success | failed | skipped
+    detail: str                # human-readable result summary
+    workflow: str
+    severity: str

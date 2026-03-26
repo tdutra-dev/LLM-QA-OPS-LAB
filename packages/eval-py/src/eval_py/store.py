@@ -15,9 +15,10 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .db_models import IncidentRecordORM
+from .db_models import ActionLogORM, IncidentRecordORM
 from .models import (
     ActionCount,
+    ActionLog,
     EvaluationRecord,
     EvaluationResult,
     MetricsSummary,
@@ -52,7 +53,51 @@ class IncidentStore:
         self.db.add(orm)
         self.db.commit()
 
+    def save_action(self, action_log: ActionLog) -> None:
+        """Persist an ActionLog to the action_logs table."""
+        orm = ActionLogORM(
+            action_id=action_log.actionId,
+            record_id=action_log.recordId,
+            executed_at=action_log.executedAt,
+            action_type=action_log.actionType,
+            outcome=action_log.outcome,
+            detail=action_log.detail,
+            workflow=action_log.workflow,
+            severity=action_log.severity,
+        )
+        self.db.add(orm)
+        self.db.commit()
+
     # ── reads ─────────────────────────────────────────────────────────────────
+
+    def get_actions(
+        self,
+        workflow: str | None = None,
+        action_type: str | None = None,
+        limit: int = 50,
+    ) -> list[ActionLog]:
+        """Query action_logs with optional filters, newest first."""
+        query = self.db.query(ActionLogORM)
+
+        if workflow:
+            query = query.filter(ActionLogORM.workflow == workflow)
+        if action_type:
+            query = query.filter(ActionLogORM.action_type == action_type)
+
+        rows = query.order_by(ActionLogORM.id.desc()).limit(limit).all()
+        return [
+            ActionLog(
+                actionId=r.action_id,
+                recordId=r.record_id,
+                executedAt=str(r.executed_at),
+                actionType=r.action_type,  # type: ignore[arg-type]
+                outcome=r.outcome,          # type: ignore[arg-type]
+                detail=r.detail,
+                workflow=r.workflow,
+                severity=r.severity,
+            )
+            for r in rows
+        ]
 
     def get_all(
         self,

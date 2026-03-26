@@ -57,8 +57,52 @@ class IncidentRecordORM(Base):
     # ── Optional: free-text summary for quick display ─────────────────────────
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str:  # type: ignore[override]
         return (
             f"<IncidentRecordORM id={self.id} record_id={self.record_id!r} "
             f"workflow={self.workflow!r} status={self.eval_status!r} score={self.eval_score}>"
+        )
+
+
+# ── Step 7: ActionExecutor audit log ─────────────────────────────────────────
+
+
+class ActionLogORM(Base):
+    """
+    Persistent audit trail of every autonomous action taken by the ActionExecutor.
+
+    One row = one executed (or skipped) action, linked to its triggering
+    evaluation record via record_id.
+    """
+    __tablename__ = "action_logs"
+
+    # ── Primary key ───────────────────────────────────────────────────────────
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # ── Action identification ─────────────────────────────────────────────────
+    action_id: Mapped[str] = mapped_column(
+        String(32), unique=True, nullable=False, index=True
+    )
+    record_id: Mapped[str] = mapped_column(
+        String(32), nullable=False, index=True
+    )
+
+    # ── Timestamp (server-side for consistency) ───────────────────────────────
+    executed_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # ── Action metadata (denormalized for fast filtering) ─────────────────────
+    action_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)      # success|failed|skipped
+    detail: Mapped[str] = mapped_column(Text, nullable=False)
+    workflow: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+
+    def __repr__(self) -> str:  # type: ignore[override]
+        return (
+            f"<ActionLogORM id={self.id} action_id={self.action_id!r} "
+            f"type={self.action_type!r} outcome={self.outcome!r} workflow={self.workflow!r}>"
         )

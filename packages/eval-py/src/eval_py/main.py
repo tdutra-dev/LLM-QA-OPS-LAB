@@ -6,12 +6,14 @@ from uuid import uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Query
 
-from .database import Base, engine
+from .database import Base, engine, SessionLocal
 from .analytics import build_analytics_report
+from .action_executor import execute as execute_action
 from .engine import evaluate
 from . import redis_cache
 from .redis_cache import KEY_ANALYTICS, KEY_METRICS
 from .models import (
+    ActionLog,
     AnalyticsReport,
     EvaluationRecord,
     EvaluationRequest,
@@ -41,10 +43,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.5.0",
+    version="0.6.0",
     description=(
-        "Evaluates LLM pipeline incidents and exposes aggregated metrics. "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 6: Redis caching."
+        "Evaluates LLM pipeline incidents and autonomously executes remediation actions. "
+        "Part of the LLM-QA-OPS-LAB roadmap — Step 7: ActionExecutor."
     ),
     lifespan=lifespan,
 )
@@ -54,11 +56,12 @@ app = FastAPI(
 
 def _persist_record(record: EvaluationRecord) -> None:
     """
-    Runs AFTER the HTTP response has already been sent to the client.
-    Currently just logs — in Step 3 this will write to PostgreSQL.
+    Background task: persist the evaluation record to PostgreSQL and then
+    let the ActionExecutor decide what autonomous remediation to apply.
 
-    FastAPI's BackgroundTasks guarantees this runs in the same process
-    but outside the request/response lifecycle.
+    Runs AFTER the HTTP response has already been sent to the client.
+    We open a fresh Session here (not via Depends) because background tasks
+    run outside FastAPI's per-request dependency lifecycle.
     """
     print(
         f"[bg] record saved | id={record.recordId}"
@@ -66,6 +69,19 @@ def _persist_record(record: EvaluationRecord) -> None:
         f" | status={record.result.status}"
         f" | score={record.result.score}"
     )
+    # ActionExecutor: dispatch and persist the autonomous action
+    action_log = execute_action(record)
+    if action_log is not None:
+        db = SessionLocal()
+        try:
+            store = IncidentStore(db)
+            store.save_action(action_log)
+        finally:
+            db.close()
+        print(
+            f"[action] {action_log.actionType} → {action_log.outcome}"
+            f" | {action_log.detail[:80]}"
+        )
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -142,6 +158,26 @@ def get_metrics(
     result = store.get_metrics()
     redis_cache.set(KEY_METRICS, result.model_dump())
     return result
+
+
+@app.get("/actions", response_model=list[ActionLog], tags=["Actions"])
+def list_actions(
+    workflow: str | None = Query(default=None, description="Filter by workflow name"),
+    action_type: str | None = Query(
+        default=None,
+        description="Filter by action type: monitor | retry | inspect_prompt | inspect_schema | check_provider | escalate",
+    ),
+    limit: int = Query(default=50, ge=1, le=500, description="Max records to return (newest first)"),
+    store: IncidentStore = Depends(get_store),
+) -> list[ActionLog]:
+    """
+    List autonomous action logs produced by the ActionExecutor.
+
+    Each entry records what action was taken after an incident evaluation,
+    allowing operators to audit the system's autonomous decisions.
+    Supports optional filtering by workflow name and action type.
+    """
+    return store.get_actions(workflow=workflow, action_type=action_type, limit=limit)
 
 
 @app.get("/analytics", response_model=AnalyticsReport, tags=["Analytics"])
