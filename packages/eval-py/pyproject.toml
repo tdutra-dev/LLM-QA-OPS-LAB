@@ -11,6 +11,7 @@ dependencies = [
   "psycopg2-binary>=2.9",
   "pandas>=2.0",
   "polars>=0.20",
+  "redis>=5.0",
 ]
 
 [project.optional-dependencies]

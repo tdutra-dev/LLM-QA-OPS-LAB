@@ -9,6 +9,8 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Query
 from .database import Base, engine
 from .analytics import build_analytics_report
 from .engine import evaluate
+from . import redis_cache
+from .redis_cache import KEY_ANALYTICS, KEY_METRICS
 from .models import (
     AnalyticsReport,
     EvaluationRecord,
@@ -32,16 +34,17 @@ async def lifespan(app: FastAPI):
 
     Base.metadata.create_all(bind=engine)
     print("[startup] PostgreSQL tables ready")
+    print(f"[startup] Redis cache available: {redis_cache.is_available()}")
     yield
     print("[shutdown] evaluation service stopped")
 
 
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.4.0",
+    version="0.5.0",
     description=(
         "Evaluates LLM pipeline incidents and exposes aggregated metrics. "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 4: Pandas + Polars analytics."
+        "Part of the LLM-QA-OPS-LAB roadmap — Step 6: Redis caching."
     ),
     lifespan=lifespan,
 )
@@ -69,8 +72,8 @@ def _persist_record(record: EvaluationRecord) -> None:
 
 @app.get("/health", tags=["System"])
 def health() -> dict[str, str]:
-    """Liveness probe — used by Docker and Kubernetes health checks."""
-    return {"status": "ok"}
+    """Liveness probe — includes Redis status."""
+    return {"status": "ok", "redis": "up" if redis_cache.is_available() else "down"}
 
 
 @app.post("/evaluate", response_model=EvaluationResult, tags=["Evaluation"])
@@ -95,6 +98,10 @@ def evaluate_endpoint(
     )
 
     store.save(record)
+
+    # Invalidate cached metrics/analytics so next read reflects this new record.
+    # Must happen BEFORE the background task so the cache is stale-free.
+    redis_cache.invalidate(KEY_METRICS, KEY_ANALYTICS)
 
     # Schedule persistence AFTER the response is sent — non-blocking
     background_tasks.add_task(_persist_record, record)
@@ -125,9 +132,16 @@ def get_metrics(
     """
     Aggregated metrics across all stored evaluations.
 
-    Returns counts by status/severity, average score, top suggested actions.
+    Response is cached in Redis for 30 s (cache-aside pattern).
+    Cache is invalidated on every POST /evaluate.
     """
-    return store.get_metrics()
+    cached = redis_cache.get(KEY_METRICS)
+    if cached is not None:
+        return MetricsSummary.model_validate(cached)
+
+    result = store.get_metrics()
+    redis_cache.set(KEY_METRICS, result.model_dump())
+    return result
 
 
 @app.get("/analytics", response_model=AnalyticsReport, tags=["Analytics"])
@@ -144,7 +158,14 @@ def get_analytics(
     - **Polars**: severity distribution (%) + workflow failure rate — ideal for
       fast columnar group-by aggregations with a functional/immutable API.
 
-    Returns an `AnalyticsReport` with both results merged together.
+    Response is cached in Redis for 30 s (cache-aside pattern).
+    Cache is invalidated on every POST /evaluate.
     """
+    cached = redis_cache.get(KEY_ANALYTICS)
+    if cached is not None:
+        return AnalyticsReport.model_validate(cached)
+
     raw_rows = store.get_raw_rows()
-    return build_analytics_report(raw_rows)
+    result = build_analytics_report(raw_rows)
+    redis_cache.set(KEY_ANALYTICS, result.model_dump())
+    return result
