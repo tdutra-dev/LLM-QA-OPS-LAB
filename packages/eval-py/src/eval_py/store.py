@@ -1,33 +1,56 @@
 """
-In-memory store for evaluation records.
+PostgreSQL-backed IncidentStore — Step 3 replacement for the in-memory store.
 
-This is a temporary implementation for Step 2.
-In Step 3 it will be replaced by a PostgreSQL-backed store using SQLAlchemy,
-but all callers (endpoints, background tasks) will remain unchanged — that is
-the point of using Dependency Injection with Depends().
+The Depends(get_store) pattern in main.py is unchanged.
+Only this file changed: from list → SQLAlchemy Session.
 
-The store is a module-level singleton: one shared instance per process.
+That is the direct benefit of the Dependency Injection pattern we set up
+in Step 2: the endpoints are completely unaware of how storage works.
 """
 from __future__ import annotations
 
 from collections import Counter
 
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from .database import get_db
+from .db_models import IncidentRecordORM
 from .models import (
     ActionCount,
     EvaluationRecord,
+    EvaluationResult,
     MetricsSummary,
+    StandardIncident,
     StatusCount,
 )
 
 
 class IncidentStore:
-    def __init__(self) -> None:
-        self._records: list[EvaluationRecord] = []
+    def __init__(self, db: Session) -> None:
+        # The Session is injected by FastAPI via Depends(get_db)
+        # — one session per HTTP request, closed automatically after.
+        self.db = db
 
     # ── writes ────────────────────────────────────────────────────────────────
 
     def save(self, record: EvaluationRecord) -> None:
-        self._records.append(record)
+        """Persist an EvaluationRecord to PostgreSQL."""
+        orm = IncidentRecordORM(
+            record_id=record.recordId,
+            workflow=record.incident.workflow,
+            incident_type=record.incident.incidentType,
+            severity=record.incident.severity,
+            eval_status=record.result.status,
+            eval_score=record.result.score,
+            suggested_action=record.result.suggestedAction,
+            summary=record.result.summary,
+            # Store full payloads as JSONB for reconstruction + future analytics
+            incident_json=record.incident.model_dump(),
+            result_json=record.result.model_dump(),
+        )
+        self.db.add(orm)
+        self.db.commit()
 
     # ── reads ─────────────────────────────────────────────────────────────────
 
@@ -37,28 +60,28 @@ class IncidentStore:
         status: str | None = None,
         limit: int = 50,
     ) -> list[EvaluationRecord]:
-        """Return records newest-first, optionally filtered by workflow or status."""
-        records = self._records
+        """Query PostgreSQL for records, newest first, with optional filters."""
+        query = self.db.query(IncidentRecordORM)
 
         if workflow:
-            records = [r for r in records if r.incident.workflow == workflow]
+            query = query.filter(IncidentRecordORM.workflow == workflow)
         if status:
-            records = [r for r in records if r.result.status == status]
+            query = query.filter(IncidentRecordORM.eval_status == status)
 
-        # Newest first, capped at limit
-        return list(reversed(records))[:limit]
+        rows = query.order_by(IncidentRecordORM.id.desc()).limit(limit).all()
+        return [self._to_record(row) for row in rows]
 
     def get_metrics(self) -> MetricsSummary:
         """
-        Compute aggregated metrics from all stored records.
+        Aggregate metrics from PostgreSQL.
 
-        NOTE: this is plain Python for now.
-        In Step 4 we will replace this with Pandas / Polars for richer analytics
-        (time-series, rolling averages, histograms, etc.).
+        NOTE: this uses plain SQLAlchemy for now.
+        In Step 4 we will load results into Pandas / Polars for richer
+        time-series analytics, rolling averages, and histogram data.
         """
-        records = self._records
+        rows = self.db.query(IncidentRecordORM).all()
 
-        if not records:
+        if not rows:
             return MetricsSummary(
                 totalEvaluations=0,
                 byStatus=[],
@@ -68,57 +91,54 @@ class IncidentStore:
                 workflows=[],
             )
 
-        # Count by EvaluationStatus
-        status_counts = Counter(r.result.status for r in records)
+        status_counts = Counter(r.eval_status for r in rows)
         by_status = [
-            StatusCount(status=s, count=c)          # type: ignore[arg-type]
+            StatusCount(status=s, count=c)  # type: ignore[arg-type]
             for s, c in status_counts.most_common()
         ]
 
-        # Average score
-        avg_score = sum(r.result.score for r in records) / len(records)
+        avg_score = sum(r.eval_score for r in rows) / len(rows)
+        severity_counts: dict[str, int] = Counter(r.severity for r in rows)
 
-        # Count by incident severity
-        severity_counts: dict[str, int] = Counter(r.incident.severity for r in records)
-
-        # Top suggested actions (filter out None)
         action_counts = Counter(
-            r.result.suggestedAction
-            for r in records
-            if r.result.suggestedAction is not None
+            r.suggested_action for r in rows if r.suggested_action is not None
         )
         top_actions = [
             ActionCount(action=a, count=c)
             for a, c in action_counts.most_common(5)
         ]
 
-        # Distinct workflows seen
-        workflows = sorted({r.incident.workflow for r in records})
-
         return MetricsSummary(
-            totalEvaluations=len(records),
+            totalEvaluations=len(rows),
             byStatus=by_status,
             averageScore=round(avg_score, 2),
             bySeverity=dict(severity_counts),
             topSuggestedActions=top_actions,
-            workflows=workflows,
+            workflows=sorted({r.workflow for r in rows}),
+        )
+
+    # ── private helpers ───────────────────────────────────────────────────────
+
+    def _to_record(self, row: IncidentRecordORM) -> EvaluationRecord:
+        """Reconstruct a Pydantic EvaluationRecord from an ORM row."""
+        return EvaluationRecord(
+            recordId=row.record_id,
+            receivedAt=str(row.received_at),
+            incident=StandardIncident.model_validate(row.incident_json),
+            result=EvaluationResult.model_validate(row.result_json),
         )
 
 
-# ── Singleton ─────────────────────────────────────────────────────────────────
-# One shared instance for the lifetime of the process.
-# FastAPI's Depends() will always resolve to this same object.
+# ── FastAPI dependency ─────────────────────────────────────────────────────────
 
-_store = IncidentStore()
-
-
-def get_store() -> IncidentStore:
+def get_store(db: Session = Depends(get_db)) -> IncidentStore:
     """
-    FastAPI dependency — inject the shared store into any endpoint.
+    Inject an IncidentStore backed by a real PostgreSQL session.
 
-    Usage:
-        @app.get("/incidents")
-        def list_incidents(store: IncidentStore = Depends(get_store)):
-            return store.get_all()
+    FastAPI resolves the chain automatically:
+        get_store → Depends(get_db) → SQLAlchemy Session → IncidentStore
+
+    All endpoints that declare `store: IncidentStore = Depends(get_store)`
+    are unchanged from Step 2 — this is the payoff of Dependency Injection.
     """
-    return _store
+    return IncidentStore(db)

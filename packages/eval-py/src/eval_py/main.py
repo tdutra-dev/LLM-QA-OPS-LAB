@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Query
 
+from .database import Base, engine
 from .engine import evaluate
 from .models import (
     EvaluationRecord,
@@ -14,13 +16,32 @@ from .models import (
 )
 from .store import IncidentStore, get_store
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifespan: code before `yield` runs at startup, after yield at shutdown.
+
+    At startup we create all SQLAlchemy tables if they don't exist yet.
+    In production you would use Alembic migrations instead of create_all().
+    """
+    # Import ORM models so SQLAlchemy knows about them before create_all()
+    from . import db_models  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
+    print("[startup] PostgreSQL tables ready")
+    yield
+    print("[shutdown] evaluation service stopped")
+
+
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.2.0",
+    version="0.3.0",
     description=(
         "Evaluates LLM pipeline incidents and exposes aggregated metrics. "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 2: FastAPI expanded."
+        "Part of the LLM-QA-OPS-LAB roadmap — Step 3: PostgreSQL + SQLAlchemy."
     ),
+    lifespan=lifespan,
 )
 
 
