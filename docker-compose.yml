@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — LLM-QA-OPS local stack
+#
+# Services
+# ─────────────────────────────────────────────────────────────────────────────
+#   postgres   PostgreSQL 16 (port 5434 on host, 5432 inside compose network)
+#   redis      Redis 7       (port 6379 — used by Step 6 for response caching)
+#   eval-py    FastAPI service built from packages/eval-py/Dockerfile
+#
+# Usage
+# ─────────────────────────────────────────────────────────────────────────────
+#   # First-time or after code changes:
+#   docker compose up --build -d
+#
+#   # Check logs:
+#   docker compose logs -f eval-py
+#
+#   # Tear down (keeps volumes):
+#   docker compose down
+#
+#   # Tear down AND wipe database:
+#   docker compose down -v
+#
+# Environment variables
+# ─────────────────────────────────────────────────────────────────────────────
+#   eval-py reads OPENAI_API_KEY from the root .env file via env_file.
+#   DB_URL and REDIS_URL are injected directly in the environment block below
+#   (using docker-compose service names, not localhost).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: llmqa
+      POSTGRES_PASSWORD: llmqa_dev
+      POSTGRES_DB: llmqa
+    ports:
+      # Host 5434 → container 5432  (avoids conflict with any local postgres)
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llmqa -d llmqa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── eval-py (FastAPI) ───────────────────────────────────────────────────────
+  eval-py:
+    build:
+      context: ./packages/eval-py          # Dockerfile location
+      dockerfile: Dockerfile
+    image: llmqa/eval-py:latest            # tag for the built image
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      # Inside the compose network the DB host is the service name «postgres»
+      # and the port is the container-internal port 5432 (not the host mapping).
+      DB_URL: postgresql://llmqa:llmqa_dev@postgres:5432/llmqa
+
+      # Redis URL for Step 6 caching — service name «redis» resolves inside compose
+      REDIS_URL: redis://redis:6379
+
+    env_file:
+      # Passes OPENAI_API_KEY from the root .env file into the container.
+      # Only variables listed here are injected; the entire file is NOT baked in.
+      - .env
+
+    depends_on:
+      postgres:
+        condition: service_healthy         # wait for pg_isready before starting
+      redis:
+        condition: service_healthy         # wait for redis PONG before starting
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s                   # give uvicorn time to start
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+volumes:
+  pgdata:
+    # Persists PostgreSQL data across `docker compose down` restarts.
+    # Use `docker compose down -v` to wipe it completely.

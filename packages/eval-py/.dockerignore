@@ -1,0 +1,26 @@
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environment (re-created inside the image by pip)
+.venv/
+
+# Tests and dev tooling (not needed at runtime)
+tests/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets — NEVER bake credentials into a Docker image
+.env
+*.env
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp

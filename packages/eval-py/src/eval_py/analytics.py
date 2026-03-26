@@ -17,7 +17,7 @@ from typing import Any
 import pandas as pd
 import polars as pl
 
-from eval_py.models import (
+from .models import (
     AnalyticsReport,
     DailyScoreTrend,
     SeverityBucket,
