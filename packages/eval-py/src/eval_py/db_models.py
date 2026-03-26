@@ -106,3 +106,48 @@ class ActionLogORM(Base):
             f"<ActionLogORM id={self.id} action_id={self.action_id!r} "
             f"type={self.action_type!r} outcome={self.outcome!r} workflow={self.workflow!r}>"
         )
+
+
+# ── Step 9: Tool Calling audit log ────────────────────────────────────────────
+
+
+class ToolCallLogORM(Base):
+    """
+    Audit trail of LLM tool calling evaluations.
+
+    Stores the LLM's tool choices and execution results for analysis.
+    Complements ActionLogORM (individual actions) with multi-tool records.
+    """
+    __tablename__ = "tool_call_logs"
+
+    # ── Primary key ───────────────────────────────────────────────────────────
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # ── Log identification ────────────────────────────────────────────────────
+    log_id: Mapped[str] = mapped_column(
+        String(32), unique=True, nullable=False, index=True
+    )
+    record_id: Mapped[str] = mapped_column(
+        String(32), nullable=False, index=True
+    )
+
+    # ── Timestamp ──────────────────────────────────────────────────────────────
+    executed_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # ── Tool calling metadata ─────────────────────────────────────────────────
+    llm_model: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_calls_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON array
+    total_tools: Mapped[int] = mapped_column(Integer, nullable=False)
+    successful_tools: Mapped[int] = mapped_column(Integer, nullable=False)
+    workflow: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+
+    def __repr__(self) -> str:  # type: ignore[override]
+        return (
+            f"<ToolCallLogORM id={self.id} log_id={self.log_id!r} "
+            f"model={self.llm_model!r} tools={self.total_tools} workflow={self.workflow!r}>"
+        )

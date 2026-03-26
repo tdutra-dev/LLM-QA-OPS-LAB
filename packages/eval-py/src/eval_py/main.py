@@ -11,6 +11,7 @@ from .analytics import build_analytics_report
 from .action_executor import execute as execute_action
 from .agent_loop import get_agent_loop
 from .engine import evaluate
+from .tool_calling import evaluate_with_tools
 from . import redis_cache
 from .redis_cache import KEY_ANALYTICS, KEY_METRICS
 from .models import (
@@ -21,6 +22,8 @@ from .models import (
     EvaluationRequest,
     EvaluationResult,
     MetricsSummary,
+    ToolCallLog,
+    ToolCallingEvaluationResult,
 )
 from .store import IncidentStore, get_store
 
@@ -45,11 +48,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.7.0",
+    version="0.8.0",
     description=(
         "Evaluates LLM pipeline incidents and autonomously executes remediation actions. "
-        "Includes an autonomous Agent Loop (percezione → valutazione → azione). "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 8: Agent Loop."
+        "Includes an autonomous Agent Loop and LLM-driven Tool Calling. "
+        "Part of the LLM-QA-OPS-LAB roadmap — Step 9: Tool Calling."
     ),
     lifespan=lifespan,
 )
@@ -125,6 +128,71 @@ def evaluate_endpoint(
     # Schedule persistence AFTER the response is sent — non-blocking
     background_tasks.add_task(_persist_record, record)
 
+    return result
+
+
+@app.post("/evaluate/tool-call", response_model=ToolCallingEvaluationResult, tags=["Evaluation"])
+def evaluate_tool_call_endpoint(
+    req: EvaluationRequest,
+    background_tasks: BackgroundTasks,
+    store: IncidentStore = Depends(get_store),
+) -> ToolCallingEvaluationResult:
+    """
+    Evaluate a single incident using LLM-driven tool calling.
+
+    Instead of deterministic rule-based evaluation, this endpoint uses
+    OpenAI function calling to let the LLM choose which remediation
+    tools to invoke and with what arguments.
+
+    The LLM analyzes the incident context and can select multiple tools
+    (escalate + monitor, retry with specific strategy, etc.) based on
+    sophisticated reasoning about the incident details.
+
+    Requires OPENAI_API_KEY in environment variables.
+    """
+    # LLM-driven evaluation and tool selection
+    result = evaluate_with_tools(req)
+    
+    # Create audit records for both the evaluation and tool usage
+    record = EvaluationRecord(
+        recordId=f"rec_{uuid4().hex[:8]}",
+        receivedAt=datetime.now(timezone.utc).isoformat(),
+        incident=req.incident,
+        # Convert tool calling result to standard result format for storage
+        result=EvaluationResult(
+            status=result.status,
+            score=result.score,
+            summary=result.summary,
+            reasoning=result.reasoning,
+            suggestedAction=None,  # Tool calling doesn't use suggestedAction
+            tags=result.tags,
+        ),
+    )
+    
+    # Save the evaluation record
+    store.save(record)
+    
+    # Create tool call audit log
+    if result.toolCalls:
+        tool_log = ToolCallLog(
+            logId=f"tlog_{uuid4().hex[:8]}",
+            recordId=record.recordId,
+            executedAt=datetime.now(timezone.utc).isoformat(),
+            llmModel="gpt-4o-mini",
+            toolCallsJson=str([tc.model_dump() for tc in result.toolCalls]),
+            totalTools=len(result.toolCalls),
+            successfulTools=len([r for r in result.toolResults if r.outcome == "success"]),
+            workflow=req.incident.workflow,
+            severity=req.incident.severity,
+        )
+        store.save_tool_call_log(tool_log)
+    
+    # Invalidate caches
+    redis_cache.invalidate(KEY_METRICS, KEY_ANALYTICS)
+    
+    # Background persistence (same as regular /evaluate)
+    background_tasks.add_task(_persist_record, record)
+    
     return result
 
 

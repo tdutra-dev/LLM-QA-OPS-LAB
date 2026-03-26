@@ -191,3 +191,53 @@ class AgentStatus(BaseModel):
     startedAt: str | None = None         # ISO 8601, None if never started
     lastCycleAt: str | None = None       # ISO 8601, None if no cycle yet
     intervalSeconds: float | None = None  # polling interval currently in use
+
+
+# ─── Step 9: Tool Calling models ──────────────────────────────────────────────
+
+class ToolCallArguments(BaseModel):
+    """Structured arguments for a tool call, as chosen by the LLM."""
+    workflow: str
+    severity: str
+    reason: str
+    context: dict[str, Any] | None = None
+
+
+class ToolCall(BaseModel):
+    """Single tool call made by the LLM via OpenAI function calling."""
+    id: str                      # OpenAI tool_call_id
+    function: str                # e.g. "escalate", "monitor", "retry"
+    arguments: ToolCallArguments
+
+
+class ToolExecutionResult(BaseModel):
+    """Result of executing one tool call."""
+    toolCallId: str
+    function: str
+    outcome: ActionOutcome       # success | failed | skipped
+    detail: str
+    executedAt: str
+
+
+class ToolCallingEvaluationResult(BaseModel):
+    """Response from the tool-calling evaluation path."""
+    status: EvaluationStatus
+    score: int = Field(ge=0, le=100)
+    summary: str
+    reasoning: str | None = None
+    toolCalls: list[ToolCall]    # LLM-chosen tools
+    toolResults: list[ToolExecutionResult]  # execution results
+    tags: list[str] | None = None
+
+
+class ToolCallLog(BaseModel):
+    """Audit record for tool-calling evaluations."""
+    logId: str                   # e.g. "tlog_abcdef12"
+    recordId: str                # links to EvaluationRecord
+    executedAt: str              # ISO 8601
+    llmModel: str                # e.g. "gpt-4o-mini"
+    toolCallsJson: str           # JSON array of ToolCall objects
+    totalTools: int              # count of tools called
+    successfulTools: int         # count with outcome="success"
+    workflow: str
+    severity: str

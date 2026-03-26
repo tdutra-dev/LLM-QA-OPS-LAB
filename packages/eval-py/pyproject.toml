@@ -12,6 +12,8 @@ dependencies = [
   "pandas>=2.0",
   "polars>=0.20",
   "redis>=5.0",
+  "openai>=1.0",
+  "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

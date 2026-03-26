@@ -15,7 +15,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .db_models import ActionLogORM, IncidentRecordORM
+from .db_models import ActionLogORM, IncidentRecordORM, ToolCallLogORM
 from .models import (
     ActionCount,
     ActionLog,
@@ -24,6 +24,7 @@ from .models import (
     MetricsSummary,
     StandardIncident,
     StatusCount,
+    ToolCallLog,
 )
 
 
@@ -93,6 +94,48 @@ class IncidentStore:
                 actionType=r.action_type,  # type: ignore[arg-type]
                 outcome=r.outcome,          # type: ignore[arg-type]
                 detail=r.detail,
+                workflow=r.workflow,
+                severity=r.severity,
+            )
+            for r in rows
+        ]
+
+    def save_tool_call_log(self, log: ToolCallLog) -> None:
+        """Persist a ToolCallLog to the tool_call_logs table."""
+        orm = ToolCallLogORM(
+            log_id=log.logId,
+            record_id=log.recordId,
+            executed_at=log.executedAt,
+            llm_model=log.llmModel,
+            tool_calls_json=log.toolCallsJson,
+            total_tools=log.totalTools,
+            successful_tools=log.successfulTools,
+            workflow=log.workflow,
+            severity=log.severity,
+        )
+        self.db.add(orm)
+        self.db.commit()
+
+    def get_tool_call_logs(
+        self,
+        workflow: str | None = None,
+        limit: int = 50,
+    ) -> list[ToolCallLog]:
+        """Query tool_call_logs with optional workflow filter, newest first."""
+        query = self.db.query(ToolCallLogORM)
+        if workflow:
+            query = query.filter(ToolCallLogORM.workflow == workflow)
+
+        rows = query.order_by(ToolCallLogORM.id.desc()).limit(limit).all()
+        return [
+            ToolCallLog(
+                logId=r.log_id,
+                recordId=r.record_id,
+                executedAt=str(r.executed_at),
+                llmModel=r.llm_model,
+                toolCallsJson=r.tool_calls_json,
+                totalTools=r.total_tools,
+                successfulTools=r.successful_tools,
                 workflow=r.workflow,
                 severity=r.severity,
             )
