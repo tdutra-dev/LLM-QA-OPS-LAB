@@ -3,7 +3,10 @@ import type { LLMAdapter } from "../LLMAdapter.js";
 import { generateTestCases } from "../usecases/generateTestCases.js";
 import { metrics } from "../infra/metrics/index.js";
 
-import type { FailureMode, ServiceName } from "@llmqa/sim/types";
+// Defined locally to avoid a circular dependency with @llmqa/sim
+// (sim already depends on llm — importing sim here would create a cycle).
+type ServiceName = "llm" | "serviceA" | "serviceB" | "serviceC";
+type FailureMode = "none" | "timeout" | "network" | "rate_limit" | "invalid_json" | "schema_mismatch";
 
 export function createGenerateTestCasesRunner(
   llm: LLMAdapter,
