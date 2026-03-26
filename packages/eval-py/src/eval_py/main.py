@@ -9,11 +9,13 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Query
 from .database import Base, engine, SessionLocal
 from .analytics import build_analytics_report
 from .action_executor import execute as execute_action
+from .agent_loop import get_agent_loop
 from .engine import evaluate
 from . import redis_cache
 from .redis_cache import KEY_ANALYTICS, KEY_METRICS
 from .models import (
     ActionLog,
+    AgentStatus,
     AnalyticsReport,
     EvaluationRecord,
     EvaluationRequest,
@@ -43,10 +45,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.6.0",
+    version="0.7.0",
     description=(
         "Evaluates LLM pipeline incidents and autonomously executes remediation actions. "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 7: ActionExecutor."
+        "Includes an autonomous Agent Loop (percezione → valutazione → azione). "
+        "Part of the LLM-QA-OPS-LAB roadmap — Step 8: Agent Loop."
     ),
     lifespan=lifespan,
 )
@@ -178,6 +181,55 @@ def list_actions(
     Supports optional filtering by workflow name and action type.
     """
     return store.get_actions(workflow=workflow, action_type=action_type, limit=limit)
+
+
+# ── Agent Loop control endpoints ───────────────────────────────────────────────
+
+@app.post("/agent/start", response_model=AgentStatus, tags=["Agent"])
+async def agent_start(
+    interval: float = Query(
+        default=5.0,
+        ge=1.0,
+        le=60.0,
+        description="Polling interval in seconds (1–60). How often the loop runs one percezione→valutazione→azione cycle.",
+    ),
+) -> AgentStatus:
+    """
+    Start the autonomous Agent Loop.
+
+    The loop runs a full percezione → valutazione → azione cycle every
+    `interval` seconds:
+    1. **Perceive** — `incident_generator.generate()` produces a synthetic incident
+    2. **Evaluate** — the LLM evaluation engine scores it
+    3. **Store** — the EvaluationRecord is persisted to PostgreSQL
+    4. **Act** — the ActionExecutor dispatches the remediation handler
+    5. **Audit** — the ActionLog is persisted to PostgreSQL
+
+    Idempotent: if the loop is already running, returns current status.
+    """
+    return await get_agent_loop().start(interval_s=interval)
+
+
+@app.post("/agent/stop", response_model=AgentStatus, tags=["Agent"])
+async def agent_stop() -> AgentStatus:
+    """
+    Stop the autonomous Agent Loop gracefully.
+
+    Waits for the current cycle to complete before stopping.
+    Idempotent: safe to call when the loop is not running.
+    """
+    return await get_agent_loop().stop()
+
+
+@app.get("/agent/status", response_model=AgentStatus, tags=["Agent"])
+def agent_status() -> AgentStatus:
+    """
+    Return the current status of the autonomous Agent Loop.
+
+    Includes: running state, cycles completed, actions executed,
+    start time, last cycle time, and polling interval.
+    """
+    return get_agent_loop().status()
 
 
 @app.get("/analytics", response_model=AnalyticsReport, tags=["Analytics"])

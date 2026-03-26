@@ -173,3 +173,21 @@ class ActionLog(BaseModel):
     detail: str                # human-readable result summary
     workflow: str
     severity: str
+
+
+# ─── Step 8: Agent Loop models ────────────────────────────────────────────────
+
+class AgentStatus(BaseModel):
+    """
+    Real-time status of the autonomous agent loop.
+
+    Returned by GET /agent/status and embedded in start/stop responses.
+    Gives operators a live view of how many cycles the loop has completed
+    and how many autonomous actions it has executed since it was started.
+    """
+    running: bool
+    cyclesCompleted: int
+    actionsExecuted: int
+    startedAt: str | None = None         # ISO 8601, None if never started
+    lastCycleAt: str | None = None       # ISO 8601, None if no cycle yet
+    intervalSeconds: float | None = None  # polling interval currently in use
