@@ -109,3 +109,44 @@ class MetricsSummary(BaseModel):
     bySeverity: dict[str, int]           # e.g. {"high": 4, "critical": 1}
     topSuggestedActions: list[ActionCount]
     workflows: list[str]                 # distinct workflow names seen
+
+
+# ─── Step 4: Pandas + Polars analytics models ─────────────────────────────────
+
+class DailyScoreTrend(BaseModel):
+    """One data point: average evaluation score for a given day (Pandas)."""
+    date: str          # ISO date string, e.g. "2025-01-15"
+    avgScore: float
+    count: int
+
+
+class SeverityBucket(BaseModel):
+    """Polars: count of evaluations per severity level."""
+    severity: str
+    count: int
+    pct: float         # percentage of total (0–100)
+
+
+class WorkflowFailureRate(BaseModel):
+    """Polars: fraction of non-'ok' evaluations per workflow."""
+    workflow: str
+    total: int
+    failed: int
+    failureRate: float  # 0.0–1.0
+
+
+class AnalyticsReport(BaseModel):
+    """
+    Rich analytics report computed by Pandas + Polars.
+
+    - dailyScoreTrend   → Pandas: resample by day + rolling mean
+    - rollingAvgScore   → Pandas: 7-evaluation rolling average (last 10 values)
+    - severityDistrib   → Polars: group_by severity
+    - workflowFailure   → Polars: group_by workflow, compute failure rate
+    """
+    totalRows: int
+    computedBy: str                          # e.g. "pandas==3.0.1 polars==1.39.3"
+    dailyScoreTrend: list[DailyScoreTrend]
+    rollingAvgScore: list[float]             # last N rolling-avg values
+    severityDistrib: list[SeverityBucket]
+    workflowFailure: list[WorkflowFailureRate]

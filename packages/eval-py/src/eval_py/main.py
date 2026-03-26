@@ -7,8 +7,10 @@ from uuid import uuid4
 from fastapi import BackgroundTasks, Depends, FastAPI, Query
 
 from .database import Base, engine
+from .analytics import build_analytics_report
 from .engine import evaluate
 from .models import (
+    AnalyticsReport,
     EvaluationRecord,
     EvaluationRequest,
     EvaluationResult,
@@ -36,10 +38,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.3.0",
+    version="0.4.0",
     description=(
         "Evaluates LLM pipeline incidents and exposes aggregated metrics. "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 3: PostgreSQL + SQLAlchemy."
+        "Part of the LLM-QA-OPS-LAB roadmap — Step 4: Pandas + Polars analytics."
     ),
     lifespan=lifespan,
 )
@@ -124,7 +126,25 @@ def get_metrics(
     Aggregated metrics across all stored evaluations.
 
     Returns counts by status/severity, average score, top suggested actions.
-    In Step 4 this computation will be powered by Pandas / Polars for
-    richer time-series analytics and rolling averages.
     """
     return store.get_metrics()
+
+
+@app.get("/analytics", response_model=AnalyticsReport, tags=["Analytics"])
+def get_analytics(
+    store: IncidentStore = Depends(get_store),
+) -> AnalyticsReport:
+    """
+    Rich analytics report powered by **Pandas** and **Polars**.
+
+    Two independent computation paths run on the same dataset:
+
+    - **Pandas**: daily score trend (resample by day) + 7-evaluation rolling
+      average — ideal for time-series with datetime index operations.
+    - **Polars**: severity distribution (%) + workflow failure rate — ideal for
+      fast columnar group-by aggregations with a functional/immutable API.
+
+    Returns an `AnalyticsReport` with both results merged together.
+    """
+    raw_rows = store.get_raw_rows()
+    return build_analytics_report(raw_rows)

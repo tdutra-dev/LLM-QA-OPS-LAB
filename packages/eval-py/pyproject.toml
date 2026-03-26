@@ -9,6 +9,8 @@ dependencies = [
   "pydantic>=2.6",
   "sqlalchemy>=2.0",
   "psycopg2-binary>=2.9",
+  "pandas>=2.0",
+  "polars>=0.20",
 ]
 
 [project.optional-dependencies]

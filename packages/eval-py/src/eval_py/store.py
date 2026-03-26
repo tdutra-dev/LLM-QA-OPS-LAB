@@ -119,6 +119,28 @@ class IncidentStore:
 
     # ── private helpers ───────────────────────────────────────────────────────
 
+    def get_raw_rows(self) -> list[dict]:
+        """
+        Return a flat list-of-dicts for analytics consumption.
+
+        Deliberately decoupled from Pydantic/ORM so both Pandas and Polars
+        can construct their DataFrames without extra conversion layers.
+        Only the columns needed by analytics.py are included.
+        """
+        rows = self.db.query(IncidentRecordORM).all()
+        return [
+            {
+                "record_id": r.record_id,
+                "received_at": r.received_at,       # datetime object
+                "workflow": r.workflow,
+                "severity": r.severity,
+                "eval_status": r.eval_status,
+                "eval_score": r.eval_score,
+                "suggested_action": r.suggested_action,
+            }
+            for r in rows
+        ]
+
     def _to_record(self, row: IncidentRecordORM) -> EvaluationRecord:
         """Reconstruct a Pydantic EvaluationRecord from an ORM row."""
         return EvaluationRecord(
