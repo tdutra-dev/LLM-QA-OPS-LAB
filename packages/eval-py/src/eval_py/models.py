@@ -73,3 +73,39 @@ class WorkflowHealth(BaseModel):
     recentIncidentCount: int = Field(ge=0)
     summary: str
     timestamp: str | None = None
+
+
+# ─── Step 2: History + Metrics models ────────────────────────────────────────
+
+class EvaluationRecord(BaseModel):
+    """
+    A single evaluation stored in memory (later: PostgreSQL in Step 3).
+    Combines the original incident with its evaluation result and metadata.
+    """
+    recordId: str
+    receivedAt: str          # ISO 8601 timestamp of when the request arrived
+    incident: StandardIncident
+    result: EvaluationResult
+
+
+class StatusCount(BaseModel):
+    status: EvaluationStatus
+    count: int
+
+
+class ActionCount(BaseModel):
+    action: str
+    count: int
+
+
+class MetricsSummary(BaseModel):
+    """
+    Aggregated view of all evaluations stored in memory.
+    In Step 4 we will compute this with Pandas/Polars for richer analytics.
+    """
+    totalEvaluations: int
+    byStatus: list[StatusCount]          # e.g. [{"status": "critical", "count": 3}]
+    averageScore: float
+    bySeverity: dict[str, int]           # e.g. {"high": 4, "critical": 1}
+    topSuggestedActions: list[ActionCount]
+    workflows: list[str]                 # distinct workflow names seen
