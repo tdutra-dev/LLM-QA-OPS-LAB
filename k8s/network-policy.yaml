@@ -1,0 +1,205 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/network-policy.yaml — Step 13: Security hardening with NetworkPolicies
+#
+# By default, all pods in the llmqa namespace can communicate freely.
+# These policies implement least-privilege network access:
+#
+#   eval-py:  ingress from ingress-controller (HTTP) + dash-app
+#             egress  to postgres, redis, internet (OpenAI API)
+#
+#   postgres: ingress ONLY from eval-py
+#             no egress allowed (pure data store)
+#
+#   redis:    ingress ONLY from eval-py
+#             no egress allowed (pure cache)
+#
+#   dash-app: ingress from ingress-controller
+#             egress  to eval-py only
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── eval-py ingress: allow HTTP from ingress-controller + dash-app ─────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: eval-py-ingress
+  namespace: llmqa
+  labels:
+    app: eval-py
+    step: "13"
+spec:
+  podSelector:
+    matchLabels:
+      app: eval-py
+  policyTypes:
+    - Ingress
+  ingress:
+    # From NGINX ingress controller (typically in ingress-nginx namespace)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8010
+    # From dash-app (same namespace)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: dash-app
+      ports:
+        - protocol: TCP
+          port: 8010
+    # From Prometheus (same namespace)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8010
+
+---
+# ── eval-py egress: allow to postgres, redis, OpenAI API (internet) ────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: eval-py-egress
+  namespace: llmqa
+  labels:
+    app: eval-py
+    step: "13"
+spec:
+  podSelector:
+    matchLabels:
+      app: eval-py
+  policyTypes:
+    - Egress
+  egress:
+    # To PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # To Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # To internet (OpenAI API, DNS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8       # block intra-cluster via CIDR (handled by podSelector)
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443   # HTTPS → OpenAI API
+    # DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ── postgres: ingress ONLY from eval-py ────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-ingress
+  namespace: llmqa
+  labels:
+    app: postgres
+    step: "13"
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: eval-py
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress: []  # postgres only responds, never initiates connections
+
+---
+# ── redis: ingress ONLY from eval-py ──────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-ingress
+  namespace: llmqa
+  labels:
+    app: redis
+    step: "13"
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: eval-py
+      ports:
+        - protocol: TCP
+          port: 6379
+  egress: []  # redis only responds, never initiates connections
+
+---
+# ── dash-app: ingress from controller, egress to eval-py ──────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dash-app-policy
+  namespace: llmqa
+  labels:
+    app: dash-app
+    step: "13"
+spec:
+  podSelector:
+    matchLabels:
+      app: dash-app
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8050
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: eval-py
+      ports:
+        - protocol: TCP
+          port: 8010
+    # DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53

@@ -68,15 +68,48 @@ Obiettivo: osservabilità production-grade con metriche quantitative e load test
 
 > Tema chiave: *"Come misuri e provi che il sistema regge in produzione?"*
 
-### Step 13 — Production Readiness & SRE (prossimo)
-Obiettivo: portare il sistema a standard enterprise per deployment reale.
-- **CI/CD pipelines**: GitHub Actions per build, test, lint e deploy automatico su push
-- **Security hardening**: secrets rotation, network policies K8s, container scanning (Trivy)
-- **SLO/SLA definition**: definire obiettivi di affidabilità misurabili (es. 99.5% uptime, p95 < 500ms)
-- **Runbooks**: documentazione operativa per incident response e procedure di recovery
-- **Chaos engineering**: fault injection controllata per validare resilience in produzione
+### Step 13 — LlamaIndex RAG Pipeline + CI/CD + Production Readiness
+Obiettivo: refactoring del RAG layer con LlamaIndex, CI/CD automatizzato, SLO quantitativi con Grafana e security hardening K8s.
 
-> Tema chiave: *"Come garantisci affidabilità e sicurezza di un sistema AI in produzione?"*
+**LlamaIndex RAG Pipeline (`rag_llamaindex.py`):**
+- `VectorStoreIndex` backed da `PGVectorStore` (stesso PostgreSQL/pgvector di Step 12)
+- `IngestionPipeline` per indicizzare nuovi incident come `TextNode` con metadata strutturata
+- `VectorIndexRetriever` — alternativa più ricca a `find_similar_incidents()` con `NodeWithScore`
+- `summarize_similar_incidents()` — QueryEngine che genera summary GPT-4o-mini sui pattern storici
+- Pacchetto opzionale: `pip install eval-py[llamaindex]` — zero breaking changes
+
+**Test suite (`tests/test_step13.py` + `conftest.py`):**
+- 19 test unit, zero dipendenze esterne (no PostgreSQL, no Redis, no OpenAI in CI)
+- Copertura: engine, Pydantic models, RAG retriever, metrics, LlamaIndex pipeline
+- `conftest.py`: fixture `no_openai_key` (autouse) per esecuzione offline sicura
+
+**GitHub Actions CI/CD (`.github/workflows/ci.yml`):**
+- Job `lint-py`: ruff su eval-py + dash-app
+- Job `test-py`: pytest offline (no OPENAI_API_KEY, no DB)
+- Job `lint-ts` + `test-ts`: ESLint + vitest su pacchetti TypeScript
+- Job `docker-build`: build eval-py + dash-app images; **push su GHCR solo su merge a main**
+- Job `security-scan`: Trivy container scan → risultati in GitHub Security tab (SARIF)
+- Gate: docker-build dipende da lint-py + test-py — nessun deploy senza green CI
+
+**Prometheus + Grafana (Step 13 observability stack):**
+- `prometheus/prometheus.yml`: scraping eval-py `/prometheus-metrics` ogni 15s
+- `prometheus/alerts/slo.yml`: 9 alerting rules — HighErrorRate, ServiceDown, EvaluateLatencyHigh, RagEvaluateLatencyHigh, RagRetrievalLatencyCritical, RagHitRateLow, HighCriticalIncidentRate, AverageScoreCriticallyLow, AgentLoopStalled
+- `prometheus/grafana/`: datasource auto-provisioning + dashboard JSON con 10 panel (eval metrics, RAG metrics, HTTP latency SLO, agent loop health)
+- `docker-compose.yml`: `prometheus:9090` + `grafana:3000` con volume persistenti
+
+**SLO quantitativi definiti:**
+- Availability: error rate < 1% / 5-minute window
+- Latency: `/evaluate` p95 < 500ms, `/evaluate/rag` p95 < 300ms, retrieval p95 < 200ms
+- RAG quality: hit rate > 60%
+- Agent health: iterations > 0 ogni 10 minuti
+
+**Security hardening K8s (`k8s/network-policy.yaml`):**
+- NetworkPolicy per ogni pod: eval-py, postgres, redis, dash-app
+- Least-privilege: postgres/redis accettano ingress SOLO da eval-py, egress vuoto
+- eval-py: egress a postgres:5432, redis:6379, internet:443 (OpenAI), DNS:53
+- Trivy container scanning integrato nel CI/CD pipeline
+
+> Tema chiave: *"Stack completo della job offer: RAG + pgvector + LlamaIndex + CI/CD gate + SLO monitorati su Grafana + security hardening — sistema AI production-ready con ogni layer osservabile, testabile e protetto"*
 
 ---
 

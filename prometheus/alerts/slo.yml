@@ -1,0 +1,206 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# alerts/slo.yml — Step 13: SLO-based Prometheus alerting rules
+#
+# SLOs defined:
+#   - Availability:   < 1% error rate over 5-minute window
+#   - Latency p95:    < 500ms for /evaluate, < 300ms for /evaluate/rag
+#   - RAG quality:    retrieval hit rate > 60% (when embeddings are available)
+#   - Agent health:   no prolonged silence from the agent loop
+#   - Score health:   average eval score not in freefall
+#
+# Severity levels:
+#   warning  — SLO degraded, investigation needed
+#   critical — SLO breached, immediate action required
+# ─────────────────────────────────────────────────────────────────────────────
+
+groups:
+
+  # ─── Availability SLO ──────────────────────────────────────────────────────
+  - name: llmqa.availability
+    interval: 1m
+    rules:
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="eval-py", status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="eval-py"}[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "eval-py error rate above SLO (>1%)"
+          description: >
+            Error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            SLO target: < 1%. Check /health and recent logs.
+          runbook: "https://github.com/tdutra-dev/LLM-QA-OPS-LAB/blob/main/docs/runbook-availability.md"
+
+      - alert: ServiceDown
+        expr: up{job="eval-py"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "eval-py is unreachable by Prometheus"
+          description: "Prometheus cannot scrape eval-py. Service may be down or crashed."
+          runbook: "https://github.com/tdutra-dev/LLM-QA-OPS-LAB/blob/main/docs/runbook-availability.md"
+
+  # ─── Latency SLO ───────────────────────────────────────────────────────────
+  - name: llmqa.latency
+    interval: 1m
+    rules:
+
+      - alert: EvaluateLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{
+              job="eval-py",
+              handler="/evaluate"
+            }[5m])) by (le)
+          ) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          slo: latency
+          endpoint: "/evaluate"
+        annotations:
+          summary: "POST /evaluate p95 latency above SLO (>500ms)"
+          description: >
+            p95 latency is {{ $value | humanizeDuration }}.
+            SLO target: p95 < 500ms. Check OpenAI API response times and DB query performance.
+
+      - alert: RagEvaluateLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{
+              job="eval-py",
+              handler="/evaluate/rag"
+            }[5m])) by (le)
+          ) > 0.3
+        for: 3m
+        labels:
+          severity: warning
+          slo: latency
+          endpoint: "/evaluate/rag"
+        annotations:
+          summary: "POST /evaluate/rag p95 latency above SLO (>300ms)"
+          description: >
+            RAG endpoint p95 latency is {{ $value | humanizeDuration }}.
+            SLO target: p95 < 300ms. Check pgvector retrieval and embedding generation.
+
+      - alert: RagRetrievalLatencyCritical
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(llmqa_rag_retrieval_latency_seconds_bucket{job="eval-py"}[5m]))
+            by (le)
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+          component: "rag-retrieval"
+        annotations:
+          summary: "pgvector retrieval p95 above target (>200ms)"
+          description: >
+            pgvector similarity search p95 is {{ $value | humanizeDuration }}.
+            Target: < 200ms. Consider adding a HNSW index on the embedding column.
+
+  # ─── RAG Quality SLO ───────────────────────────────────────────────────────
+  - name: llmqa.rag_quality
+    interval: 5m
+    rules:
+
+      - alert: RagHitRateLow
+        expr: |
+          (
+            sum(rate(llmqa_rag_requests_total{job="eval-py", retrieval="hit"}[15m]))
+            /
+            sum(rate(llmqa_rag_requests_total{job="eval-py"}[15m]))
+          ) < 0.6
+        for: 10m
+        labels:
+          severity: warning
+          slo: rag_quality
+        annotations:
+          summary: "RAG retrieval hit rate below 60%"
+          description: >
+            Only {{ $value | humanizePercentage }} of RAG requests found similar incidents.
+            This may indicate embeddings are not yet populated or the knowledge base is sparse.
+            Run POST /evaluate (standard) multiple times to build up historical data.
+
+  # ─── Evaluation Score SLO ──────────────────────────────────────────────────
+  - name: llmqa.evaluation_quality
+    interval: 1m
+    rules:
+
+      - alert: HighCriticalIncidentRate
+        expr: |
+          (
+            sum(rate(llmqa_eval_requests_total{job="eval-py", status="critical"}[10m]))
+            /
+            sum(rate(llmqa_eval_requests_total{job="eval-py"}[10m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          slo: incident_quality
+        annotations:
+          summary: "More than 50% of incidents evaluated as critical"
+          description: >
+            {{ $value | humanizePercentage }} of incidents are critical over the last 10 minutes.
+            This may indicate a widespread LLM pipeline issue or fault injection in progress.
+
+      - alert: AverageScoreCriticallyLow
+        expr: |
+          histogram_quantile(0.5,
+            sum(rate(llmqa_eval_score_bucket{job="eval-py"}[10m]))
+            by (le)
+          ) < 40
+        for: 5m
+        labels:
+          severity: critical
+          slo: incident_quality
+        annotations:
+          summary: "Median evaluation score critically low (<40)"
+          description: >
+            The median evaluation score is below 40, indicating systemic LLM pipeline degradation.
+            Investigate the agent loop and active workflows immediately.
+
+  # ─── Agent Loop Health ──────────────────────────────────────────────────────
+  - name: llmqa.agent_health
+    interval: 1m
+    rules:
+
+      - alert: AgentLoopStalled
+        expr: |
+          increase(llmqa_agent_loop_iterations_total{job="eval-py"}[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+          component: "agent-loop"
+        annotations:
+          summary: "Agent loop has not run in 10 minutes"
+          description: >
+            No agent loop iterations detected in the last 10 minutes.
+            The agent may have stopped or crashed. Check POST /agent/status.
+
+      - alert: AgentLoopHighErrorRate
+        expr: |
+          (
+            rate(llmqa_agent_loop_errors_total{job="eval-py"}[5m])
+            /
+            rate(llmqa_agent_loop_iterations_total{job="eval-py"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: "agent-loop"
+        annotations:
+          summary: "Agent loop error rate above 10%"
+          description: >
+            More than 10% of agent loop iterations are failing.
+            Check agent loop logs for recurring exceptions.
