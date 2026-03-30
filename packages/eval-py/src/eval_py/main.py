@@ -12,8 +12,10 @@ from .action_executor import execute as execute_action
 from .agent_loop import get_agent_loop
 from .engine import evaluate
 from .tool_calling import evaluate_with_tools
+from . import metrics as m
 from . import redis_cache
 from .redis_cache import KEY_ANALYTICS, KEY_METRICS
+from .rag_retriever import find_similar_incidents, build_rag_context
 from .models import (
     ActionLog,
     AgentStatus,
@@ -22,6 +24,8 @@ from .models import (
     EvaluationRequest,
     EvaluationResult,
     MetricsSummary,
+    RagEvaluationResult,
+    SimilarIncidentResponse,
     ToolCallLog,
     ToolCallingEvaluationResult,
 )
@@ -38,24 +42,44 @@ async def lifespan(app: FastAPI):
     """
     # Import ORM models so SQLAlchemy knows about them before create_all()
     from . import db_models  # noqa: F401
+    from sqlalchemy import text as sql_text
+
+    # Step 12: enable the pgvector extension before creating tables.
+    # This is idempotent — safe to run on every startup.
+    try:
+        with engine.connect() as conn:
+            conn.execute(sql_text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+        print("[startup] pgvector extension ready")
+    except Exception as exc:
+        print(f"[startup] pgvector extension not available ({exc}) — RAG disabled")
 
     Base.metadata.create_all(bind=engine)
     print("[startup] PostgreSQL tables ready")
     print(f"[startup] Redis cache available: {redis_cache.is_available()}")
+    print(f"[startup] Prometheus metrics available: {m.is_available()}")
     yield
     print("[shutdown] evaluation service stopped")
 
 
 app = FastAPI(
     title="LLM-QA-OPS Evaluation Service",
-    version="0.8.0",
+    version="0.12.0",
     description=(
         "Evaluates LLM pipeline incidents and autonomously executes remediation actions. "
-        "Includes an autonomous Agent Loop and LLM-driven Tool Calling. "
-        "Part of the LLM-QA-OPS-LAB roadmap — Step 9: Tool Calling."
+        "Step 12: RAG-enhanced evaluation with pgvector + Prometheus observability."
     ),
     lifespan=lifespan,
 )
+
+# ── Step 12: Prometheus instrumentation ──────────────────────────────────
+# Instruments all endpoints automatically (request count + duration histograms)
+# and exposes the /prometheus-metrics endpoint for Prometheus scraping.
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app, endpoint="/prometheus-metrics")
+except ImportError:
+    pass  # Graceful degradation: service runs without metrics if pkg not installed
 
 
 # ── Background task ───────────────────────────────────────────────────────────
@@ -120,6 +144,10 @@ def evaluate_endpoint(
     )
 
     store.save(record)
+
+    # Step 12: track Prometheus metrics
+    m.eval_requests_total.labels(status=result.status).inc()
+    m.eval_score_histogram.observe(result.score)
 
     # Invalidate cached metrics/analytics so next read reflects this new record.
     # Must happen BEFORE the background task so the cache is stale-free.
@@ -194,6 +222,112 @@ def evaluate_tool_call_endpoint(
     background_tasks.add_task(_persist_record, record)
     
     return result
+
+
+# ── Step 12: RAG-augmented evaluation endpoint ────────────────────────────────
+
+@app.post("/evaluate/rag", response_model=RagEvaluationResult, tags=["Evaluation"])
+def evaluate_rag_endpoint(
+    req: EvaluationRequest,
+    background_tasks: BackgroundTasks,
+    top_k: int = Query(default=3, ge=1, le=10, description="Number of similar past incidents to retrieve"),
+    store: IncidentStore = Depends(get_store),
+) -> RagEvaluationResult:
+    """
+    RAG-augmented incident evaluation using pgvector similarity search.
+
+    **How it works:**
+
+    1. **Embed** the incoming incident into a 1536-dim vector (OpenAI text-embedding-3-small)
+    2. **Retrieve** the top-K most semantically similar past incidents from PostgreSQL
+       using the pgvector cosine distance operator (`<=>`)
+    3. **Evaluate** the incident with the standard rule-based engine
+    4. **Augment** the response with the retrieved historical context
+    5. **Store** the new record + persist its embedding for future retrieval
+
+    The `similarIncidents` field in the response gives operators full visibility
+    into which historical cases were used as context, and how similar they were.
+
+    **Graceful degradation:** if embeddings are unavailable (no OPENAI_API_KEY,
+    pgvector not installed, or no historical data yet), falls back to standard
+    evaluation with `ragContextUsed=false`.
+
+    Requires OPENAI_API_KEY for embedding generation.
+    """
+    import time
+
+    # 1. Retrieve similar incidents via pgvector
+    t0 = time.perf_counter()
+    similar = find_similar_incidents(
+        incident_json=req.incident.model_dump(),
+        db=store.db,
+        top_k=top_k,
+    )
+    retrieval_latency = time.perf_counter() - t0
+
+    # Step 12: track RAG retrieval metrics
+    m.rag_retrieval_latency.observe(retrieval_latency)
+    m.rag_similar_found.observe(len(similar))
+    m.rag_requests_total.labels(retrieval="hit" if similar else "miss").inc()
+
+    # 2. Run standard rule-based evaluation
+    base_result = evaluate(req)
+
+    # Step 12: track evaluation metrics
+    m.eval_requests_total.labels(status=base_result.status).inc()
+    m.eval_score_histogram.observe(base_result.score)
+
+    # 3. Build enriched response
+    embedding_stored = False
+    record = EvaluationRecord(
+        recordId=f"rec_{uuid4().hex[:8]}",
+        receivedAt=datetime.now(timezone.utc).isoformat(),
+        incident=req.incident,
+        result=base_result,
+    )
+    store.save(record)  # also stores the embedding (best-effort, inside save())
+    # Check if embedding was stored (pgvector available + OPENAI_API_KEY set)
+    try:
+        from .rag_retriever import generate_embedding
+        embedding_stored = generate_embedding("test") is not None
+    except Exception:
+        pass
+
+    redis_cache.invalidate(KEY_METRICS, KEY_ANALYTICS)
+    background_tasks.add_task(_persist_record, record)
+
+    rag_context = build_rag_context(similar)
+
+    return RagEvaluationResult(
+        # Base evaluation fields
+        status=base_result.status,
+        score=base_result.score,
+        summary=base_result.summary,
+        reasoning=(
+            base_result.reasoning + "\n\n" + rag_context
+            if rag_context and base_result.reasoning
+            else base_result.reasoning or rag_context or ""
+        ),
+        suggestedAction=base_result.suggestedAction,
+        tags=base_result.tags,
+        # RAG-specific fields
+        similarIncidents=[
+            SimilarIncidentResponse(
+                recordId=s.record_id,
+                workflow=s.workflow,
+                incidentType=s.incident_type,
+                severity=s.severity,
+                summary=s.summary,
+                suggestedAction=s.suggested_action,
+                evalStatus=s.eval_status,
+                evalScore=s.eval_score,
+                similarity=s.similarity,
+            )
+            for s in similar
+        ],
+        ragContextUsed=len(similar) > 0,
+        embeddingStored=embedding_stored,
+    )
 
 
 @app.get("/incidents", response_model=list[EvaluationRecord], tags=["Incidents"])

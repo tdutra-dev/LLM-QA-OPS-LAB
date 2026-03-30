@@ -54,6 +54,17 @@ class IncidentStore:
         self.db.add(orm)
         self.db.commit()
 
+        # Step 12: generate and persist the pgvector embedding (best-effort)
+        # Runs synchronously here; if it fails, the record is already committed.
+        try:
+            from .rag_retriever import store_embedding
+            store_embedding(self.db, record.recordId, record.incident.model_dump())
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "[store] embedding persistence failed for %s: %s", record.recordId, exc
+            )
+
     def save_action(self, action_log: ActionLog) -> None:
         """Persist an ActionLog to the action_logs table."""
         orm = ActionLogORM(

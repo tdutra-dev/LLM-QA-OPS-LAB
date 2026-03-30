@@ -14,6 +14,11 @@ dependencies = [
   "redis>=5.0",
   "openai>=1.0",
   "python-dotenv>=1.0",
+  # Step 12 — RAG + pgvector
+  "pgvector>=0.3",
+  # Step 12 — Prometheus observability
+  "prometheus-client>=0.20",
+  "prometheus-fastapi-instrumentator>=7.0",
 ]
 
 [project.optional-dependencies]

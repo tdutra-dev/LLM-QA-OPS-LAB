@@ -18,6 +18,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
+try:
+    from pgvector.sqlalchemy import Vector as PgVector
+    _pgvector_available = True
+except ImportError:
+    PgVector = None  # type: ignore[assignment,misc]
+    _pgvector_available = False
+
 from .database import Base
 
 
@@ -56,6 +63,16 @@ class IncidentRecordORM(Base):
 
     # ── Optional: free-text summary for quick display ─────────────────────────
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ── Step 12: RAG — pgvector embedding ────────────────────────────────────
+    # 1536-dimensional vector from OpenAI text-embedding-3-small.
+    # Nullable: records created before Step 12 will have NULL here.
+    # pgvector must be installed as a PostgreSQL extension:
+    #   CREATE EXTENSION IF NOT EXISTS vector;
+    embedding: Mapped[list[float] | None] = mapped_column(
+        PgVector(1536) if _pgvector_available else Text,  # type: ignore[arg-type]
+        nullable=True,
+    )
 
     def __repr__(self) -> str:  # type: ignore[override]
         return (

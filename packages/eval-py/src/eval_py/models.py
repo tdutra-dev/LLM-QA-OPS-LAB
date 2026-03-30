@@ -65,6 +65,35 @@ class EvaluationResult(BaseModel):
     tags: list[str] | None = None
 
 
+# ─── Step 12: RAG models ──────────────────────────────────────────────────────
+
+class SimilarIncidentResponse(BaseModel):
+    """A past incident retrieved via pgvector similarity search."""
+    recordId: str
+    workflow: str
+    incidentType: str
+    severity: str
+    summary: str
+    suggestedAction: str | None
+    evalStatus: str
+    evalScore: int
+    similarity: float   # 0.0–1.0, higher = more similar
+
+
+class RagEvaluationResult(EvaluationResult):
+    """
+    Extended evaluation result enriched with RAG context.
+
+    Adds:
+    - similarIncidents: top-K past incidents retrieved via pgvector
+    - ragContextUsed:   whether retrieval found at least one similar incident
+    - embeddingStored:  whether the embedding for this incident was persisted
+    """
+    similarIncidents: list[SimilarIncidentResponse] = Field(default_factory=list)
+    ragContextUsed: bool = False
+    embeddingStored: bool = False
+
+
 class WorkflowHealth(BaseModel):
     workflow: str
     status: HealthStatus
