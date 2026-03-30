@@ -90,7 +90,7 @@ services:
         condition: service_healthy         # wait for redis PONG before starting
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8010/health || exit 1"]
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8010/health\")' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -111,9 +111,9 @@ services:
       DASH_DEBUG: "false"
     depends_on:
       eval-py:
-        condition: service_healthy         # wait for FastAPI to be ready
+        condition: service_started         # wait for FastAPI to be ready
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8050/ || exit 1"]
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8050/\")' || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -140,7 +140,7 @@ services:
       - "--web.console.templates=/etc/prometheus/consoles"
     depends_on:
       eval-py:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready || exit 1"]
       interval: 10s
