@@ -62,8 +62,7 @@ logger = logging.getLogger(__name__)
 try:
     from llama_index.core import Settings, VectorStoreIndex
     from llama_index.core.ingestion import IngestionPipeline
-    from llama_index.core.schema import NodeRelationship, RelatedNodeInfo, TextNode
-    from llama_index.core.vector_stores import VectorStoreQuery
+    from llama_index.core.schema import TextNode
     from llama_index.embeddings.openai import OpenAIEmbedding
     from llama_index.vector_stores.postgres import PGVectorStore
 

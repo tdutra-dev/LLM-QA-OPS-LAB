@@ -37,14 +37,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import TypeAlias
 from uuid import uuid4
 
-from .models import ActionLog, ActionOutcome, EvaluationRecord, EvaluationResult
+from .models import ActionLog, EvaluationRecord
 
 logger = logging.getLogger(__name__)
 
 # ── Type alias for handler return value ───────────────────────────────────────
-type ActionResult = dict[str, str]   # {"outcome": ..., "detail": ...}
+ActionResult: TypeAlias = dict[str, str]   # {"outcome": ..., "detail": ...}
 
 
 # ── Individual action handlers ────────────────────────────────────────────────

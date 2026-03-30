@@ -187,7 +187,7 @@ def update_lists(n_intervals: int):
         workflows_cards = [
             html.Div([
                 html.Span(f"• {workflow}", className="me-2"),
-                html.Small(f"active", className="text-muted"),
+                html.Small("active", className="text-muted"),
             ], className="mb-1") 
             for workflow in workflows[:5]  # Top 5
         ]

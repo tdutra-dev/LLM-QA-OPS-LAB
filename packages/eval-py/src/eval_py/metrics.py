@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # We import prometheus_client only when used so the service doesn't crash if
 # the package is not yet installed (graceful degradation during local dev).
 try:
-    from prometheus_client import Counter, Gauge, Histogram
+    from prometheus_client import Counter, Histogram
 
     # ── Evaluation metrics ────────────────────────────────────────────────────
 

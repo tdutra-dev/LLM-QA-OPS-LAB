@@ -9,7 +9,7 @@
     "build": "tsc",
     "check": "tsc --noEmit",
     "simulate": "node dist/simulate.js",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "dependencies": {

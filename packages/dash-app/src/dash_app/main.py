@@ -52,8 +52,8 @@ app = dash.Dash(
 )
 
 # Import layout and callbacks after app initialization to avoid circular imports
-from .layout import create_main_layout
-from . import callbacks  # noqa: F401 - callbacks register themselves
+from .layout import create_main_layout  # noqa: E402
+from . import callbacks  # noqa: F401 E402 - callbacks register themselves
 
 # Set the layout
 app.layout = create_main_layout()

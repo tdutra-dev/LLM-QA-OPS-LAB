@@ -170,7 +170,6 @@ def find_similar_incidents(
     try:
         from pgvector.sqlalchemy import Vector  # noqa: F401 — registers the type
         from sqlalchemy import text as sql_text
-        from .db_models import IncidentRecordORM
 
         query_text = _incident_to_text(incident_json)
         query_embedding = generate_embedding(query_text)
