@@ -1,289 +1,254 @@
-# 🤖 LLM-QA-OPS-LAB
+# LLM-QA-OPS-LAB
 
-**Production-Ready Autonomous LLM Operations Platform**
+[![CI](https://github.com/tdutra-dev/LLM-QA-OPS-LAB/actions/workflows/ci.yml/badge.svg)](https://github.com/tdutra-dev/LLM-QA-OPS-LAB/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-green)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-An enterprise-grade system for **autonomous incident management** powered by Large Language Models. This project demonstrates how to build **production-quality AI systems** with the same operational discipline as distributed backend services.
+**Autonomous AI Agent for LLM Pipeline Monitoring & Remediation**
 
-## 🚀 **What This System Does**
+A production-grade distributed system that implements an autonomous AI agent capable of perceiving incidents, evaluating them via **OpenAI function calling**, retrieving historical context through **RAG with pgvector**, and orchestrating corrective actions — all observable via **Prometheus + Grafana** and deployed on **Kubernetes**.
 
-**Autonomous LLM Agent** that:
-- **Perceives** incidents from multiple data streams
-- **Evaluates** severity using OpenAI tool calling
-- **Acts** autonomously with remediation strategies
-- **Monitors** system health in real-time with interactive dashboards
-- **Scales** horizontally on Kubernetes with cloud-native operations
+Built as a cross-language monorepo (TypeScript + Python) following the same operational discipline as enterprise distributed systems.
 
-**Production Features:**
-- ✅ **Real-time Dashboard** (Dash + Plotly + Bootstrap)
-- ✅ **Kubernetes Deployment** (complete K8s manifests + Helm)
-- ✅ **Autonomous Agent Loop** (percezione → valutazione → azione)
-- ✅ **OpenAI Tool Calling** (LLM chooses remediation tools autonomously)
-- ✅ **FastAPI Backend** (auto-generated docs, async processing)
-- ✅ **PostgreSQL + Redis** (persistent storage + caching layer)
-- ✅ **Docker Compose** (local development environment)
-- ✅ **Pandas + Polars Analytics** (time series analysis, failure rates)
+## What This System Does
 
-## 🎯 **Key Technical Achievements**
+The agent runs a continuous loop:
 
-Built through **11 implementation steps**, this project showcases:
+1. **Perceives** incidents from a simulated runtime stream
+2. **Evaluates** severity using OpenAI function calling (6 available tools)
+3. **Retrieves** similar historical incidents via **RAG** (pgvector cosine similarity)
+4. **Acts** autonomously — restart, scale, alert, escalate
+5. **Exposes** every metric to Prometheus; visualized in a live Grafana dashboard
 
-### 🔧 **Backend Engineering**
-- **FastAPI** with async/await patterns, automatic OpenAPI docs
-- **PostgreSQL** with SQLAlchemy ORM, migrations, connection pooling
-- **Redis** cache-aside pattern for performance optimization
-- **Pydantic** models with runtime validation and type safety
+---
 
-### 🤖 **AI/LLM Integration** 
-- **OpenAI Function Calling** for autonomous tool selection
-- **Structured outputs** with JSON schema validation
-- **Prompt versioning** and template management
-- **Provider-agnostic adapters** (OpenAI, mock, extensible)
-
-### 🌐 **Frontend & Visualization**
-- **Interactive Dashboard** with real-time updates (Dash + Plotly)
-- **Bootstrap UI** with responsive design
-- **Time series charts** for trend analysis
-- **Action audit trails** with filtering and search
-
-### ☁️ **DevOps & Infrastructure**
-- **Kubernetes manifests** for production deployment
-- **Multi-stage Dockerfiles** optimized for size and security
-- **Health checks** and **observability** (readiness/liveness probes)
-- **Horizontal scaling** ready (stateless services)
-- **Secret management** and **configuration as code**
-
-## 🏗️ **System Architecture**
+## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Dashboard     │    │  FastAPI + AI   │    │   Data Layer    │
-│   (Dash 8050)   │◄───┤   (Port 8010)   ├───►│ PostgreSQL +    │
-│                 │    │                 │    │ Redis Cache     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                        │                        │
-         ▼                        ▼                        ▼
-  📊 Real-time UI        🤖 AI Agent Loop         🗄️ Persistent Storage
-  • Live metrics         • OpenAI Tool Calling    • Evaluation records  
-  • Interactive charts   • Autonomous actions     • Analytics cache
-  • Agent control        • Health monitoring      • Incident history
+┌──────────────────────────────────────────────────────────────────────┐
+│                        LLM-QA-OPS-LAB                                │
+│                                                                      │
+│  TypeScript Monorepo (pnpm workspaces)                               │
+│  ┌────────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐    │
+│  │  @llmqa/   │  │  @llmqa/  │  │ @llmqa/  │  │  @llmqa/     │    │
+│  │    core    │  │    llm    │  │   sim    │  │  contracts   │    │
+│  │FeatureSpec │  │LLMAdapter │  │Simulator │  │ Shared types │    │
+│  │ TestCase   │  │PromptEng  │  │FaultInj. │  │ TS + Python  │    │
+│  └────────────┘  └────────────┘  └──────────┘  └──────────────┘    │
+└──────────────────────────────────────────────────────────────────────┘
+                                │
+                      HTTP / shared contracts
+                                │
+┌──────────────────────────────────────────────────────────────────────┐
+│                     Python Services                                  │
+│                                                                      │
+│  ┌─────────────────────────────────────────┐  ┌──────────────────┐  │
+│  │          eval-py  (FastAPI :8010)        │  │  dash-app :8050  │  │
+│  │                                          │  │                  │  │
+│  │  POST /evaluate          (rule-based)    │  │  Real-time       │  │
+│  │  POST /evaluate/tool-call (OpenAI FC)    │  │  monitoring      │  │
+│  │  POST /evaluate/rag       (RAG + pgvec)  │  │  dashboard       │  │
+│  │  GET  /prometheus-metrics (Prometheus)   │  │  Dash + Plotly   │  │
+│  │  GET  /analytics          (Pandas/Polars)│  └──────────────────┘  │
+│  │                                          │                        │
+│  │  rag_retriever.py  ← pgvector <=> op     │                        │
+│  │  rag_llamaindex.py ← LlamaIndex pipeline │                        │
+│  │  metrics.py        ← 9 custom metrics    │                        │
+│  │  agent_loop.py     ← autonomous loop     │                        │
+│  │  action_executor.py← remediation actions │                        │
+│  └──────────┬──────────────────┬────────────┘                        │
+│             │                  │                                      │
+│  ┌──────────▼──────┐  ┌────────▼───────┐                            │
+│  │  PostgreSQL :5432│  │  Redis :6379   │                            │
+│  │  + pgvector ext  │  │  Cache-aside   │                            │
+│  │  VECTOR(1536)    │  │  TTL analytics │                            │
+│  └─────────────────┘  └────────────────┘                            │
+│                                                                      │
+│  ┌──────────────────┐  ┌────────────────┐                           │
+│  │  Prometheus :9090│  │  Grafana :3000 │                           │
+│  │  SLO alerting    │  │  10-panel dash │                           │
+│  └──────────────────┘  └────────────────┘                           │
+└──────────────────────────────────────────────────────────────────────┘
+                                │
+                    Kubernetes (kind / minikube)
+┌──────────────────────────────────────────────────────────────────────┐
+│  Namespace: llmqa                                                    │
+│  18 manifests · Kustomize · NetworkPolicy (least-privilege)          │
+│  eval-py Deployment · dash-app Deployment · postgres StatefulSet     │
+│  redis Deployment · nginx Ingress · GHCR image push on CI           │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### **🔄 Autonomous Agent Loop**
+---
 
-The AI Agent autonomously:
-1. **👁️ Perceives** incidents from data streams
-2. **🧠 Evaluates** using OpenAI function calling (6 available tools)  
-3. **⚡ Acts** with remediation strategies (monitor, retry, escalate, etc.)
-4. **📈 Learns** from action outcomes for improved decision-making
+## Tech Stack
 
-```
-Incident Stream → OpenAI Tool Calling → Action Selection → Execution → Logging
-```
+| Layer | Technologies |
+|-------|-------------|
+| **Backend** | Python 3.11 · FastAPI · SQLAlchemy 2 · Pydantic V2 |
+| **AI / LLM** | OpenAI GPT-4o-mini · Function Calling · Structured Outputs |
+| **RAG** | pgvector (`<=>` cosine) · OpenAI `text-embedding-3-small` · LlamaIndex |
+| **Frontend** | Dash · Plotly · Bootstrap 5 |
+| **Analytics** | Pandas · Polars |
+| **Database** | PostgreSQL 16 · pgvector extension · Redis 7 |
+| **Observability** | Prometheus · Grafana · 9 custom metrics · SLO alerting rules |
+| **Infrastructure** | Docker · Kubernetes · Kustomize · nginx Ingress |
+| **CI/CD** | GitHub Actions · ruff · vitest · Trivy · GHCR image push |
+| **TypeScript** | pnpm workspaces · Zod · Vitest · ESLint |
 
-## 🛠️ **Technology Stack**
+---
 
-### **Backend Services**
-- **FastAPI 0.104+** - High-performance async API with auto docs
-- **PostgreSQL 16** - Primary data store with ACID compliance  
-- **Redis 7** - High-speed cache layer for analytics
-- **SQLAlchemy 2.0** - Modern async ORM with type safety
-- **Pydantic V2** - Runtime validation and serialization
+## Quick Start
 
-### **AI/LLM Integration**
-- **OpenAI GPT-4** - Function calling for autonomous tool selection
-- **Structured outputs** - JSON schema validation for reliability
-- **Prompt engineering** - Versioned templates with deterministic generation
+### Local (Docker Compose)
 
-### **Frontend & Analytics**
-- **Dash 2.16+** - Interactive Python web applications
-- **Plotly 5.17+** - Real-time charting and visualization
-- **Bootstrap 5** - Responsive UI components
-- **Pandas 2.0** - Time series analysis and data processing
-- **Polars** - High-performance DataFrame operations  
-
-### **Infrastructure & DevOps**
-- **Docker & Compose** - Containerized local development
-- **Kubernetes** - Production orchestration with auto-scaling
-- **nginx Ingress** - Load balancing and SSL termination
-- **Multi-stage builds** - Optimized container images
-
-## 🚀 **Quick Start**
-
-### **Local Development (Docker Compose)**
 ```bash
 git clone https://github.com/tdutra-dev/LLM-QA-OPS-LAB.git
 cd LLM-QA-OPS-LAB
 
-# Start complete stack
+# Copy and fill your OpenAI key
+cp .env.example .env
+
+# Start full stack: API + Dashboard + PostgreSQL + Redis + Prometheus + Grafana
 docker compose up --build -d
 
-# Access applications
-# Dashboard: http://localhost:8050  
-# FastAPI:   http://localhost:8010/docs
+# Services
+# FastAPI + Swagger:  http://localhost:8010/docs
+# Dashboard:          http://localhost:8050
+# Prometheus:         http://localhost:9090
+# Grafana:            http://localhost:3000  (admin / llmqa_dev)
 ```
 
-### **Kubernetes Deployment** 
+### Kubernetes
+
 ```bash
-# Build and deploy to K8s
 ./scripts/k8s/build-images.sh
 ./scripts/k8s/deploy.sh
 
-# Access via port forwarding
+kubectl port-forward -n llmqa svc/eval-py-svc 8010:8010
 kubectl port-forward -n llmqa svc/dash-app-svc 8050:8050
 ```
 
-### **Core Design Principles**
+### Run Tests
 
-**🔒 Production-Grade Reliability:**
-- Structured LLM outputs with runtime validation
-- Health checks and circuit breaker patterns
-- Horizontal scaling and load balancing
-- Secret management and security practices
+```bash
+# Python (19 unit tests, zero external deps)
+cd packages/eval-py
+pip install -e ".[dev]"
+pytest tests/ -v
 
-**🎯 Observable AI Systems:**
-- Real-time monitoring with interactive dashboards  
-- Action audit trails and decision transparency
-- Performance metrics and failure analysis
-- Agent behavior logging and debugging
-
-- Container orchestration with auto-scaling
-- Infrastructure as Code (K8s manifests + scripts)
-- CI/CD ready architecture and deployment automation
-
-## 📊 **Features Highlight (Latest Implementation)**
-
-### **🎛️ Real-Time Dashboard (Step 10)**
-- **Interactive monitoring** with 4 specialized tabs
-- **Live metrics**: evaluations, scores, agent status, system health  
-- **Time series analytics**: daily trends, 7-day rolling averages
-- **Action audit trail**: filterable history with outcome tracking
-- **Agent control panel**: start/stop autonomous loop with real-time status
-
-### **☸️ Kubernetes Orchestration (Step 11)**
-- **Production-ready manifests**: complete K8s deployment stack
-- **Horizontal scaling**: `kubectl scale deployment/eval-py --replicas=N`
-- **Service mesh**: internal DNS resolution and load balancing
-- **Ingress routing**: nginx-based traffic management
-- **One-command deployment**: `./scripts/k8s/deploy.sh`
-
-### **🤖 Autonomous Agent (Steps 7-9)**
-- **Incident perception**: real-time data stream processing
-- **AI-driven evaluation**: OpenAI function calling with 6 available tools
-- **Autonomous actions**: monitor, retry, escalate, inspect prompt/schema, check provider
-- **Learning loop**: action outcome analysis for improved decision-making
-
-## 📈 **Completed Development Roadmap**
-
-✅ **Step 1-6**: Core infrastructure (FastAPI, PostgreSQL, Redis, analytics, Docker)  
-✅ **Step 7**: ActionExecutor for autonomous incident remediation  
-✅ **Step 8**: Agent Loop implementation (percezione → valutazione → azione)  
-✅ **Step 9**: OpenAI Tool Calling for LLM-driven action selection  
-✅ **Step 10**: Interactive Dashboard with real-time monitoring  
-✅ **Step 11**: Complete Kubernetes deployment and orchestration  
-
-🔮 **Future Steps** (Production enhancement):
-- **Step 12**: Performance monitoring (Prometheus + Grafana, load testing)
-- **Step 13**: Production readiness (CI/CD pipelines, security hardening, SRE)
-
-## 🎯 **API Endpoints Overview**
-
-The FastAPI service provides comprehensive REST APIs:
-
-### **Core Operations**
-- `POST /evaluate` - Rule-based incident evaluation  
-- `POST /evaluate/tool-call` - AI-driven evaluation with tool calling
-- `GET /health` - System health check
-- `GET /metrics` - Real-time system metrics
-
-### **Analytics & Monitoring**
-- `GET /analytics` - Pandas/Polars processed trends and statistics
-- `GET /actions` - Action execution history with filtering
-- `GET /incidents` - Incident stream with severity analysis
-
-### **Agent Control**
-- `POST /agent/start` - Start autonomous agent loop
-- `POST /agent/stop` - Stop autonomous agent
-- `GET /agent/status` - Agent activity and performance metrics
-
-*Interactive API documentation available at `/docs` (Swagger UI)*
-
-## 🏆 **Professional Skills Demonstrated**
-
-### **Backend Development**
-- **API Design**: RESTful architecture with OpenAPI documentation  
-- **Database Engineering**: PostgreSQL with migrations, indexing, connection pooling
-- **Caching Strategies**: Redis implementation with TTL and eviction policies
-- **Async Programming**: FastAPI async/await patterns for high performance
-
-### **AI/ML Engineering**  
-- **LLM Integration**: Production-grade OpenAI API integration
-- **Prompt Engineering**: Structured prompts with deterministic outputs
-- **Function Calling**: Advanced AI tool selection and execution
-- **Validation**: Runtime schema validation for AI output reliability
-
-### **DevOps & Infrastructure**
-- **Container Orchestration**: Complete Kubernetes deployment with scaling
-- **Infrastructure as Code**: K8s manifests, ConfigMaps, Secrets management  
-- **Service Discovery**: Internal DNS resolution and networking
-- **Monitoring**: Health checks, readiness/liveness probes, observability
-
-### **Full-Stack Development**
-- **Interactive UIs**: Real-time dashboards with Dash + Plotly
-- **Data Visualization**: Time series charts, trend analysis, KPI tracking
-- **Responsive Design**: Bootstrap-based professional interfaces
-- **State Management**: Real-time updates with WebSocket-style functionality
-
-### **System Architecture**
-- **Microservices**: Decoupled services with clear boundaries
-- **Event-Driven Design**: Autonomous agent loop with reactive patterns  
-- **Scalability**: Horizontal scaling and load balancing ready
-- **Security**: Secret management, container security, network isolation
+# TypeScript
+pnpm test --run
+```
 
 ---
 
-## 🎖️ **About the Developer**
+## RAG Pipeline
 
-**Tendresse Dutra**  
-*Senior Backend & AI Systems Engineer*
+Each incident evaluation auto-generates an OpenAI embedding (`text-embedding-3-small`, 1536 dims) stored directly in PostgreSQL via the `pgvector` extension.
 
-**Core Expertise:**
-- **AI/LLM Systems**: Production-grade artificial intelligence integration
-- **Backend Architecture**: High-performance distributed systems  
-- **Cloud Infrastructure**: Kubernetes, Docker, microservices orchestration
-- **Full-Stack Development**: End-to-end application development
+**`POST /evaluate/rag`** retrieves the top-K most similar historical incidents using cosine distance, builds a context string, and uses it to enrich the evaluation:
 
-**This project demonstrates:**
-- Enterprise-level software architecture and development
-- Modern DevOps practices and infrastructure as code
-- AI/ML engineering with production considerations
-- Full-stack capabilities from database to user interface
+```python
+# Cosine similarity search in SQL
+SELECT record_id, embedding <=> :query_embedding AS distance
+FROM evaluation_records
+WHERE embedding IS NOT NULL
+ORDER BY distance
+LIMIT :top_k
+```
 
-*Building the future of AI-powered operations.* 🚀
+A higher-level **LlamaIndex pipeline** (`rag_llamaindex.py`) wraps the same pgvector store with `VectorStoreIndex` + `IngestionPipeline` + `QueryEngine` for GPT-4o-mini summarization of historical patterns.
 
----
-
-# Project Vision
-
-LLM-QA-OPS-LAB explores how AI systems can be operated with the same discipline as distributed backend systems.
-
-The long-term goal is to build a framework for:
-
-- LLM reliability
-- AI system observability
-- operational evaluation of AI workflows
-
-Ultimately enabling **AI-assisted operational intelligence for modern backend systems**.
+Both layers degrade gracefully — if `OPENAI_API_KEY` is absent or pgvector is unavailable, the system falls back to standard evaluation without crashing.
 
 ---
 
-# Author
+## Observability
 
-Tendresse Dutra  
-Backend & AI Systems Engineer
+9 custom Prometheus metrics exposed at `GET /prometheus-metrics`:
 
-Focus areas:
+| Metric | Type | Description |
+|--------|------|-------------|
+| `llmqa_eval_requests_total` | Counter | Requests by status (ok / needs_attention / critical) |
+| `llmqa_eval_score` | Histogram | Score distribution (0–100) |
+| `llmqa_rag_retrieval_latency_seconds` | Histogram | pgvector similarity search latency |
+| `llmqa_rag_embedding_latency_seconds` | Histogram | OpenAI embedding generation latency |
+| `llmqa_rag_similar_incidents_found` | Histogram | Number of similar incidents retrieved |
+| `llmqa_rag_requests_total` | Counter | RAG requests by result (hit / miss) |
+| `llmqa_agent_loop_iterations_total` | Counter | Agent loop cycles |
+| `llmqa_agent_loop_errors_total` | Counter | Agent loop failures |
+| `llmqa_action_executor_total` | Counter | Actions by type and outcome |
 
-- backend architecture
-- distributed systems
-- AI reliability
-- LLM operational intelligence
+**SLO alerting rules** (`prometheus/alerts/slo.yml`):
+- Availability: error rate < 1% per 5-minute window
+- Latency: `/evaluate` p95 < 500ms · `/evaluate/rag` p95 < 300ms
+- RAG hit rate > 60%
+- Agent loop must execute at least once every 10 minutes
+
+---
+
+## CI/CD Pipeline
+
+```
+push / PR
+    │
+    ├── lint-py (ruff)      ─── eval-py + dash-app
+    ├── test-py (pytest)    ─── 19 unit tests, offline
+    ├── lint-ts (eslint)    ─── TypeScript packages
+    ├── test-ts (vitest)    ─── TypeScript packages
+    │
+    └── [on green] ──► docker-build ──► GHCR push (main only)
+                    └──► security-scan (Trivy → GitHub Security tab)
+```
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/evaluate` | Rule-based incident evaluation |
+| `POST` | `/evaluate/tool-call` | AI-driven evaluation (OpenAI function calling) |
+| `POST` | `/evaluate/rag` | RAG-enhanced evaluation with similar incidents |
+| `GET` | `/health` | Service health |
+| `GET` | `/metrics` | Real-time KPIs |
+| `GET` | `/analytics` | Pandas/Polars aggregations |
+| `GET` | `/actions` | Action execution history |
+| `POST` | `/agent/start` | Start autonomous agent loop |
+| `POST` | `/agent/stop` | Stop autonomous agent loop |
+| `GET` | `/agent/status` | Agent activity metrics |
+| `GET` | `/prometheus-metrics` | Prometheus scraping endpoint |
+
+Interactive docs: `http://localhost:8010/docs`
+
+---
+
+## Implementation Roadmap (Completed)
+
+| Step | Description | Key Technologies |
+|------|-------------|-----------------|
+| 1 | Monorepo architecture | pnpm workspaces, TypeScript, FeatureSpec domain |
+| 2 | TestCase domain model | Fixtures, e-commerce checkout flow |
+| 3 | LLM Adapter abstraction | Adapter pattern, MockLLMAdapter, provider-agnostic |
+| 4 | Versioned Prompt Engine | Markdown templates, Zod schema validation |
+| 5 | End-to-end test generation | FeatureSpec → LLM → TestCase[] pipeline |
+| 6 | Production resilience layer | Retry/backoff, Timeout, Fallback, safe JSON parsing |
+| 7 | KPI & Health Scoring | p50/p95/p99 latency, HEALTHY/DEGRADED/CRITICAL |
+| 8 | Alert Engine + Incident Copilot | AlertEngine, OpenAI GPT-4o-mini reports |
+| 9 | Runtime Simulator + Python service | FastAPI, Pydantic, cross-language contracts |
+| 10 | Complete backend stack | PostgreSQL, Redis, Pandas, Polars, ActionExecutor |
+| 11 | Kubernetes deployment | 18 manifests, Kustomize, multi-stage Dockerfile |
+| 12 | RAG + Prometheus observability | pgvector, embeddings, 9 custom metrics, Grafana |
+| 13 | LlamaIndex + CI/CD + Security | LlamaIndex, GitHub Actions, Trivy, NetworkPolicy, SLO alerts |
+
+---
+
+## About
+
+Built by **[Tendresse Dutra](https://linkedin.com/in/tendresse-dutra)** — Backend & AI Systems Engineer.
+
+Focus: distributed systems where LLM components are treated as operational services — observable, resilient, and autonomous.
+
