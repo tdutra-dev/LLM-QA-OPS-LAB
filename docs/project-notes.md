@@ -4,7 +4,7 @@ Appunti progettuali, materiale CV e note per interviste.
 
 ---
 
-## 11-Step Roadmap — Recap Tecnico
+## 13-Step Roadmap — Recap Tecnico
 
 ### Step 1 — Architettura Monorepo
 Setup del workspace TypeScript con `pnpm workspaces`. Definizione del dominio `FeatureSpec` (specifiche delle feature da testare). Fondamenta dell'intero progetto.
@@ -58,15 +58,26 @@ Infrastruttura completa per deployment production:
 - **Dockerfile multi-stage** per `dash-app` (Python, non-root, optimized)
 - **Script di management** con auto-detection `kind`/`minikube`
 
-### Step 12 — Performance Monitoring (prossimo)
-Obiettivo: osservabilità production-grade con metriche quantitative e load testing.
-- **Prometheus**: scraping metriche da FastAPI (endpoint `/metrics`), PostgreSQL, Redis
-- **Grafana**: dashboard real-time con alert su soglie KPI (latency, error rate, throughput)
-- **Latency percentili**: p50/p95/p99 per ogni endpoint e per l'agent loop
-- **Load testing**: k6 o Locust per simulare carico e validare comportamento sotto stress
-- **Alerting rules**: notifiche su degradazione delle performance prima che diventi critico
+### Step 12 — RAG-Enhanced Evaluation + Prometheus Observability
+Obiettivo: arricchire il motore di valutazione con contesto storico reale (RAG) e misurarne l'impatto con metriche Prometheus.
 
-> Tema chiave: *"Come misuri e provi che il sistema regge in produzione?"*
+**RAG con pgvector (`rag_retriever.py`):**
+- `pgvector` extension su PostgreSQL: colonna `embedding VECTOR(1536)` su `evaluation_records`
+- Genera embedding dell'incident via OpenAI `text-embedding-3-small`, esegue similarity search con l'operatore `<=>` (cosine distance), restituisce i top-K incident più simili
+- `POST /evaluate/rag`: nuovo endpoint che restituisce `similarIncidents[]`, `ragContextUsed`, `embeddingStored`
+- Graceful degradation: senza `OPENAI_API_KEY` o pgvector, si comporta come `/evaluate` standard — nessun crash
+- Embedding auto-salvato ad ogni `store.save()` per costruire il knowledge base progressivamente
+- Nuovi modelli Pydantic: `SimilarIncidentResponse` + `RagEvaluationResult`
+
+**Prometheus Observability (`metrics.py`):**
+- 9 metriche custom: `llmqa_eval_requests_total`, `llmqa_eval_score`, `llmqa_rag_retrieval_latency_seconds`, `llmqa_rag_embedding_latency_seconds`, `llmqa_rag_similar_incidents_found`, `llmqa_rag_requests_total`, `llmqa_agent_loop_iterations_total`, `llmqa_agent_loop_errors_total`, `llmqa_action_executor_total`
+- `prometheus-fastapi-instrumentator`: auto-instrumentazione di tutti gli endpoint (p50/p95/p99)
+- `GET /prometheus-metrics`: endpoint scraping per Prometheus
+- Graceful degradation: no-op stubs se `prometheus_client` non è installato
+
+**Dipendenze aggiunte:** `pgvector>=0.3`, `prometheus-client>=0.20`, `prometheus-fastapi-instrumentator>=7.0`
+
+> Tema chiave: *"RAG non come black box, ma come componente osservabile — misuri retrieval latency, hit rate, e vedi l'impatto sul score direttamente su Grafana"*
 
 ### Step 13 — LlamaIndex RAG Pipeline + CI/CD + Production Readiness
 Obiettivo: refactoring del RAG layer con LlamaIndex, CI/CD automatizzato, SLO quantitativi con Grafana e security hardening K8s.
