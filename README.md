@@ -228,6 +228,8 @@ Interactive docs: `http://localhost:8010/docs`
 
 ## Implementation Roadmap (Completed)
 
+> Step 14 added — LangGraph-backed agent pipeline now running in production.
+
 | Step | Description | Key Technologies |
 |------|-------------|-----------------|
 | 1 | Monorepo architecture | pnpm workspaces, TypeScript, FeatureSpec domain |
@@ -243,6 +245,7 @@ Interactive docs: `http://localhost:8010/docs`
 | 11 | Kubernetes deployment | 18 manifests, Kustomize, multi-stage Dockerfile |
 | 12 | RAG + Prometheus observability | pgvector, embeddings, 9 custom metrics, Grafana |
 | 13 | LlamaIndex + CI/CD + Security | LlamaIndex, GitHub Actions, Trivy, NetworkPolicy, SLO alerts |
+| 14 | LangGraph agentic pipeline | LangGraph StateGraph, typed state (TypedDict), RAG-augmented evaluation, MemorySaver checkpointing |
 
 ---
 

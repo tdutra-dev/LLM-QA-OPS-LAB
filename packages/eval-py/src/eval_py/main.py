@@ -10,6 +10,7 @@ from .database import Base, engine, SessionLocal
 from .analytics import build_analytics_report
 from .action_executor import execute as execute_action
 from .agent_loop import get_agent_loop
+from .langgraph_agent import get_langgraph_loop, run_one_cycle, get_compiled_graph
 from .engine import evaluate
 from .tool_calling import evaluate_with_tools
 from . import metrics as m
@@ -432,6 +433,77 @@ def agent_status() -> AgentStatus:
     start time, last cycle time, and polling interval.
     """
     return get_agent_loop().status()
+
+
+# ── LangGraph Agent endpoints (Step 14) ──────────────────────────────────────
+
+@app.get("/agent/graph/topology", tags=["LangGraph"])
+def agent_graph_topology() -> dict:
+    """
+    Return the Mermaid diagram of the compiled LangGraph pipeline.
+
+    Paste the ``mermaid`` value at https://mermaid.live to visualise
+    the full perceive → retrieve_context → evaluate → store → act → audit graph.
+    """
+    mermaid = get_compiled_graph().get_graph().draw_mermaid()
+    return {"mermaid": mermaid}
+
+
+@app.post("/agent/graph/run", tags=["LangGraph"])
+def agent_graph_run_cycle() -> dict:
+    """
+    Execute **one** LangGraph pipeline cycle synchronously and return a summary.
+
+    Pipeline: perceive → retrieve_context (RAG) → evaluate → store → act → [audit]
+
+    Useful for manual testing, demo, and CI smoke tests.
+    Returns the cycle_id, record_id, eval status/score, action taken, and RAG hit count.
+    """
+    state = run_one_cycle()
+    record = state.get("record")
+    result = state.get("result")
+    action_log = state.get("action_log")
+    return {
+        "cycle_id": state["cycle_id"],
+        "rag_similar_found": state.get("similar_count", 0),
+        "record_id": record.recordId if record else None,
+        "eval_status": result.status if result else None,
+        "eval_score": result.score if result else None,
+        "suggested_action": result.suggestedAction if result else None,
+        "action_executed": action_log.actionType if action_log else None,
+        "action_outcome": action_log.outcome if action_log else None,
+    }
+
+
+@app.post("/agent/graph/start", response_model=AgentStatus, tags=["LangGraph"])
+async def agent_graph_start(
+    interval: float = Query(
+        default=5.0,
+        ge=1.0,
+        le=60.0,
+        description="Polling interval in seconds (1–60).",
+    ),
+) -> AgentStatus:
+    """
+    Start the **LangGraph-backed** autonomous agent loop.
+
+    Identical behaviour to ``POST /agent/start`` but the pipeline runs through
+    the typed LangGraph StateGraph with RAG context retrieval before evaluation.
+    Idempotent: returns current status if already running.
+    """
+    return await get_langgraph_loop().start(interval_s=interval)
+
+
+@app.post("/agent/graph/stop", response_model=AgentStatus, tags=["LangGraph"])
+async def agent_graph_stop() -> AgentStatus:
+    """Stop the LangGraph agent loop gracefully."""
+    return await get_langgraph_loop().stop()
+
+
+@app.get("/agent/graph/status", response_model=AgentStatus, tags=["LangGraph"])
+def agent_graph_status() -> AgentStatus:
+    """Return the current status of the LangGraph agent loop."""
+    return get_langgraph_loop().status()
 
 
 @app.get("/analytics", response_model=AnalyticsReport, tags=["Analytics"])

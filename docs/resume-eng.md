@@ -20,18 +20,19 @@ github.com/tdutra-dev/LLM-QA-OPS-LAB
 
 - Autonomous agent loop: perceives incidents → evaluates via **OpenAI function calling** → executes remediation actions (restart, scale, alert, escalate)
 - **RAG pipeline**: pgvector cosine similarity (`<=>` operator) + OpenAI `text-embedding-3-small` embeddings + LlamaIndex `VectorStoreIndex` + `IngestionPipeline`
+- **LangGraph agentic pipeline**: typed `StateGraph` (TypedDict state), 6 nodes (perceive → retrieve_context → evaluate → store → act → audit), conditional routing, `MemorySaver` checkpointing — replaces the raw agent loop from Step 8
 - **Prometheus observability**: 9 custom metrics, SLO alerting rules (availability, latency p95, RAG hit rate), 10-panel Grafana dashboard auto-provisioned
 - **CI/CD**: GitHub Actions — ruff, pytest (19 unit tests), ESLint, vitest → Docker push to GHCR → Trivy container security scan
 - **Kubernetes**: 18 manifests, Kustomize, least-privilege NetworkPolicy per pod
 - Cross-language monorepo: TypeScript (pnpm workspaces, Zod, Vitest) + Python (FastAPI, SQLAlchemy 2, Pydantic V2)
 
-`Python · FastAPI · PostgreSQL · pgvector · Redis · OpenAI API · RAG · LlamaIndex · Prometheus · Grafana · Docker · Kubernetes · TypeScript`
+`Python · FastAPI · PostgreSQL · pgvector · Redis · OpenAI API · RAG · LlamaIndex · LangGraph · Prometheus · Grafana · Docker · Kubernetes · TypeScript`
 
 ---
 
 ## Technical Skills
 
-**AI / LLM:** OpenAI API · Function Calling · Structured Outputs · RAG · pgvector · LlamaIndex · Prompt Engineering · AI Reliability
+**AI / LLM:** OpenAI API · Function Calling · Structured Outputs · RAG · pgvector · LlamaIndex · **LangGraph** · Prompt Engineering · AI Reliability
 **Python:** FastAPI · SQLAlchemy 2 · Pydantic V2 · Pandas · Polars · Pytest · Dash · Plotly
 **TypeScript / Node.js:** pnpm workspaces · Zod · Vitest · ESLint · NestJS
 **Database:** PostgreSQL · Redis · MySQL · MongoDB · SQL Server

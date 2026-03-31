@@ -19,6 +19,8 @@ dependencies = [
   # Step 12 — Prometheus observability
   "prometheus-client>=0.20",
   "prometheus-fastapi-instrumentator>=7.0",
+  # Step 14 — LangGraph agentic pipeline
+  "langgraph>=0.2",
 ]
 
 [project.optional-dependencies]
