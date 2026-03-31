@@ -189,7 +189,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Trivy vulnerability scanner on eval-py
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.30.0
         with:
           image-ref: ${{ env.IMAGE_EVAL_PY }}:${{ github.sha }}
           format: "sarif"
@@ -199,6 +199,7 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true   # requires GHAS (not available on private free repos)
         with:
           sarif_file: "trivy-eval-py.sarif"
           category: "trivy-eval-py"
