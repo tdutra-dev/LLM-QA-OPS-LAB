@@ -53,6 +53,8 @@ github.com/tdutra-dev/LLM-QA-OPS-LAB
 **Backend Developer — Analytics Intelligence, Next4B** *(2022)*
 - Python backend APIs and MongoDB data layer for financial reporting dashboards
 - Data processing and aggregation pipelines for client-facing analytics and charts
+- First production exposure to **Grafana** dashboards for data visualization and monitoring
+- Authored **OpenAPI (Swagger) specs manually** — prior to framework-generated docs — building a solid understanding of the underlying contract standard
 
 **Systems Analyst / Backend Developer — I.CON** *(2019–2021)*
 - C#/.NET backend for an airport operations management platform
