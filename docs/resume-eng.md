@@ -1,5 +1,5 @@
 # Tendresse Dutra
-**Backend Engineer · Python · FastAPI · LLM Systems · RAG · Kubernetes**
+**Backend Engineer · Python · FastAPI · LLM Systems · RAG · LangGraph · Kubernetes**
 linkedin.com/in/tendresse-dutra · github.com/tdutra-dev
 Open to full-time & freelance · Remote / Italy
 
