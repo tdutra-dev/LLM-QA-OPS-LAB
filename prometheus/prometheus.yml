@@ -31,11 +31,18 @@ rule_files:
 # ── Scrape targets ─────────────────────────────────────────────────────────
 scrape_configs:
 
-  # eval-py FastAPI service
+  # eval-py FastAPI service (Docker)
   # Exposes: HTTP request metrics (auto) + custom llmqa_* metrics
   - job_name: "eval-py"
     static_configs:
       - targets: ["eval-py:8010"]
+    metrics_path: "/prometheus-metrics"
+    scrape_interval: 15s
+
+  # eval-py running locally on host (workaround for stuck Docker container)
+  - job_name: "eval-py-local"
+    static_configs:
+      - targets: ["172.22.0.1:8011"]
     metrics_path: "/prometheus-metrics"
     scrape_interval: 15s
 

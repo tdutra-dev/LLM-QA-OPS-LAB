@@ -131,6 +131,8 @@ services:
       - ./prometheus/alerts:/etc/prometheus/alerts:ro
       # Persistent data
       - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # reach host ports from container (Linux)
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
