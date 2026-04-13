@@ -273,19 +273,26 @@ Livello: Mid-level · Startup/scale-up · Remote Italy/EMEA
 | Apr 13, 2026 | Fase 1 — IncidentEvent model | `incident_event.py` creato con typing completo, validators, `derive_incident_type()`, `to_standard_incident()`. 56 test green. |
 | Apr 13, 2026 | Fase 2 — Ingestion layer | `normalizers.py` (SpringBoot/Kafka/Webhook, Strategy pattern), `IngestResponse` in models.py, 3 endpoint `/ingest/*` in main.py. 134 test green. |
 
----
+| Apr 13, 2026 | Fase 3 — Redis Stream + Batch LLM Analyzer | `stream_buffer.py`, `batch_analyzer.py`, endpoint `/batch/analyze` + `/stream/status`. 82 test green (216 totale). Commit 35e1ec4. |
+| Apr 13, 2026 | Fase 4 — RAG Faithfulness Evaluator | `rag_faithfulness.py`: rule-based grounding checks + LLM judge opzionale. `FaithfulnessResult` model. Endpoint `/batch/faithfulness`. Fix docker-compose: `pgvector/pgvector:pg16`. 62 test green (278 totale). Commit 58085d1. |
 
-## Note per future sessioni
+---
 
 **Per riprendere il lavoro**: leggi questo file per intero, poi chiedi a Tendresse
 in quale fase si trova e cosa ha già fatto dell'ultima sessione.
 
-**Prossima azione concreta**: Fase 1 e 2 completate. 134 test green.
-Prossimo step: Fase 3 — Redis Stream buffer + batch job (legge tutti gli eventi
-accumulati, chiama OpenAI una volta sola, salva l'analysis strutturata) +
-evaluation module per correctness e hallucination rate.
+**Prossima azione concreta**: Tutte e 4 le fasi completate. 278 test green.
+Il sistema è completo: ingestion → normalization → stream buffer → batch LLM analysis → faithfulness evaluation → Prometheus metrics → Grafana.
 
-**Fasi ancora da sviluppare**: Fase 3, 4.
+**Fasi ancora da sviluppare**: nessuna — roadmap completata.
+
+**Prossimo step opzionale**: integrare il `/batch/faithfulness` in un workflow automatico
+che chiama `/batch/analyze` e poi valuta la fedeltà in background, salvando lo score su PostgreSQL.
+O creare una dashboard Grafana dedicata ai 4 LLM evaluation metrics:
+  - `hallucination_risk` distribution
+  - `confidence_score` distribution
+  - `rag_faithfulness_score` distribution
+  - `faithfulness_total` per verdict
 
 **Regola di lavoro**: ogni sessione produce codice reale nel progetto, non
 tutorial usa-e-getta. La spiegazione del perché viene sempre insieme al codice.
