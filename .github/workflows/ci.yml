@@ -180,15 +180,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── 6. Security Scan (Trivy) ────────────────────────────────────────────────
-  # Scansiona il filesystem di eval-py (pyproject.toml + Dockerfile) alla ricerca
-  # di CVE CRITICAL/HIGH nelle dipendenze Python.
+  # Scansiona il filesystem di eval-py cercando CVE CRITICAL/HIGH nelle
+  # dipendenze Python (pyproject.toml + Dockerfile).
   #
-  # Perché filesystem scan invece di image scan:
-  #   L'image scan richiederebbe di ri-autenticarsi con GHCR in questo job
-  #   separato (il login di docker-build non sopravvive tra i job).
-  #   Il filesystem scan trova gli stessi CVE Python leggendo pyproject.toml
-  #   direttamente dal checkout — nessuna dipendenza dal registry, nessun
-  #   token aggiuntivo, stessa utilità pratica per un portfolio project.
+  # Usa l'installazione diretta via deb package invece dell'action marketplace:
+  # - l'action aquasecurity/trivy-action usa setup-trivy come sub-azione che
+  #   scarica il binario da GitHub Releases e fallisce per rate-limit senza token
+  # - installazione diretta: wget + dpkg = affidabile, pinned, zero dipendenze
   security-scan:
     name: Container Security Scan (Trivy)
     runs-on: ubuntu-latest
@@ -197,19 +195,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Trivy vulnerability scanner on eval-py source
-        uses: aquasecurity/trivy-action@0.30.0
-        with:
-          scan-type: "fs"
-          scan-ref: "./packages/eval-py"
-          format: "sarif"
-          output: "trivy-eval-py.sarif"
-          severity: "CRITICAL,HIGH"
-          exit-code: "0"   # report but don't fail CI (set to 1 for hard security gate)
+      - name: Install Trivy
+        run: |
+          wget -q https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.deb
+          sudo dpkg -i trivy_0.69.3_Linux-64bit.deb
+          rm trivy_0.69.3_Linux-64bit.deb
 
-      - name: Upload Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        continue-on-error: true   # requires GHAS (not available on public free repos)
-        with:
-          sarif_file: "trivy-eval-py.sarif"
-          category: "trivy-eval-py"
+      - name: Run Trivy security scan on eval-py
+        run: |
+          trivy fs packages/eval-py \
+            --severity CRITICAL,HIGH \
+            --format table \
+            --exit-code 0
