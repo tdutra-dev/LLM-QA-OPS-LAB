@@ -21,6 +21,7 @@ from .models import (
     ActionLog,
     AgentStatus,
     AnalyticsReport,
+    BatchAnalysisResult,
     EvaluationRecord,
     EvaluationRequest,
     EvaluationResult,
@@ -33,6 +34,9 @@ from .models import (
 )
 from .store import IncidentStore, get_store
 from .normalizers import SpringBootNormalizer, KafkaNormalizer, WebhookNormalizer
+from .stream_buffer import push_to_stream, drain_stream, stream_length
+from .stream_buffer import STREAM_KEY
+from .batch_analyzer import run_batch_analysis
 
 
 @asynccontextmanager
@@ -227,6 +231,71 @@ def evaluate_tool_call_endpoint(
     return result
 
 
+# ── Fase 3: Batch Analysis endpoints ─────────────────────────────────────────
+
+@app.post("/batch/analyze", response_model=BatchAnalysisResult, tags=["Batch Analysis"])
+def batch_analyze_endpoint(
+    window_seconds: int = Query(
+        default=300,
+        ge=60,
+        le=3600,
+        description="Time window in seconds to analyze (60–3600). Reads all stream events in this window.",
+    ),
+    service: str | None = Query(
+        default=None,
+        description="Filter events by service name before analysis.",
+    ),
+) -> BatchAnalysisResult:
+    """
+    Analyze all incidents buffered in the Redis Stream over the last N seconds.
+
+    **This is the core of Phase 3**: instead of evaluating one incident at a time,
+    the LLM receives ALL events in the window together and identifies cross-service
+    patterns that per-event analysis cannot see.
+
+    **LLM Evaluation metrics** in the response:
+    - `hallucination_risk`: the LLM's self-assessment of its own confidence
+    - `confidence_score`: 0–100 confidence in the analysis
+    - `llm_used`: false when falling back to rule-based (no OPENAI_API_KEY)
+
+    Both `hallucination_risk` and `confidence_score` are tracked as Prometheus
+    metrics and visible in Grafana — this is the first evaluation layer metric.
+
+    **Graceful degradation**: if Redis is unavailable, analyzes an empty batch.
+    If OPENAI_API_KEY is not set, uses rule-based fallback.
+    """
+    events = drain_stream(window_seconds=window_seconds)
+
+    if service:
+        events = [e for e in events if e.get("service") == service]
+
+    result = run_batch_analysis(events, window_seconds=window_seconds)
+
+    # Track evaluation metrics in Prometheus
+    m.batch_analysis_total.labels(
+        hallucination_risk=result.hallucination_risk,
+        llm_used=str(result.llm_used).lower(),
+    ).inc()
+    m.batch_stream_events.observe(result.event_count)
+
+    return result
+
+
+@app.get("/stream/status", tags=["Batch Analysis"])
+def stream_status_endpoint() -> dict:
+    """
+    Return the current Redis Stream buffer status.
+
+    Use this to see how many events are queued before triggering a batch analysis.
+    """
+    from .stream_buffer import is_available as stream_available
+    return {
+        "stream_key": STREAM_KEY,
+        "length": stream_length(),
+        "available": stream_available(),
+    }
+
+
 # ── Fase 2: Ingestion endpoints ───────────────────────────────────────────────
 
 def _ingest(
@@ -240,7 +309,8 @@ def _ingest(
 
     1. Normalize raw payload → IncidentEvent (via the given normalizer)
     2. Convert to StandardIncident → evaluate with rule-based engine
-    3. Persist and return IngestResponse
+    3. Push to Redis Stream buffer (for batch analysis)
+    4. Persist and return IngestResponse
     """
     event = normalizer.normalize(raw)
     standard = event.to_standard_incident()
@@ -258,6 +328,19 @@ def _ingest(
     m.eval_score_histogram.observe(result.score)
     redis_cache.invalidate(KEY_METRICS, KEY_ANALYTICS)
     background_tasks.add_task(_persist_record, record)
+
+    # ── Fase 3: push to Redis Stream buffer for batch analysis ────────────────
+    push_to_stream({
+        "incident_id": event.incident_id,
+        "source_system": event.source_system,
+        "severity": event.severity,
+        "service": event.service,
+        "message": event.message,
+        "timestamp": event.timestamp.isoformat(),
+        "incident_type": standard.incidentType,
+        "error_type": event.error_type or "",
+        "affected_resource": event.affected_resource or "",
+    })
 
     return IngestResponse(
         incident_id=event.incident_id,

@@ -29,6 +29,49 @@ HealthStatus = Literal["healthy", "degraded", "unstable", "critical"]
 
 HealthTrend = Literal["stable", "improving", "worsening"]
 
+HallucinationRisk = Literal["low", "medium", "high"]
+
+
+# ─── Fase 3: Batch Analysis models ───────────────────────────────────────────
+
+class BatchEventSummary(BaseModel):
+    """
+    Aggregato per service nel risultato dell'analisi batch.
+    Prodotto dal LLM (o dal fallback rule-based) dopo aver letto tutti gli eventi.
+    """
+    service: str
+    count: int
+    dominant_severity: Severity      # il livello più grave tra gli eventi del service
+    incident_types: list[str]        # tipi di incident unici visti per questo service
+
+
+class BatchAnalysisResult(BaseModel):
+    """
+    Risultato dell'analisi batch LLM su una finestra temporale di incident.
+
+    Questa è la struttura dati centrale della Fase 3:
+    - event_count: quanti eventi ha analizzato il LLM in questa chiamata
+    - overall_assessment: il giudizio complessivo del LLM sulla situazione
+    - critical_pattern: il pattern più critico identificato (null se nessuno)
+    - recommended_actions: azioni suggerite dal LLM
+    - hallucination_risk: auto-valutazione del LLM → prima metrica di evaluation
+    - confidence_score: confidence 0-100 del LLM → segunda metrica di evaluation
+    - llm_used: False se il fallback rule-based è stato usato (no OPENAI_API_KEY)
+    """
+    batch_id: str
+    analyzed_at: str                          # ISO 8601 UTC
+    event_count: int = Field(ge=0)
+    window_seconds: int = Field(ge=0)
+    services_affected: list[str]
+    overall_assessment: str
+    critical_pattern: str | None = None
+    recommended_actions: list[str] = Field(default_factory=list)
+    events_by_service: list[BatchEventSummary] = Field(default_factory=list)
+    hallucination_risk: HallucinationRisk = "medium"
+    confidence_score: int = Field(ge=0, le=100, default=50)
+    llm_used: bool = True
+    raw_llm_response: str | None = None       # JSON grezzo per audit/debug
+
 
 class StandardIncident(BaseModel):
     id: str

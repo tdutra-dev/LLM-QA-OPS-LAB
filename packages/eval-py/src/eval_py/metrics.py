@@ -101,6 +101,21 @@ try:
         labelnames=["action_type", "outcome"],  # restart | scale | alert | ... | success | skipped | error
     )
 
+    # ── Fase 3: Batch Analysis metrics ────────────────────────────────────────
+    # Prima metrica di LLM Evaluation: qualità dell'output batch
+
+    batch_analysis_total = Counter(
+        "llmqa_batch_analysis_total",
+        "Total batch analysis runs, labelled by hallucination risk and LLM usage.",
+        labelnames=["hallucination_risk", "llm_used"],  # low|medium|high, true|false
+    )
+
+    batch_stream_events = Histogram(
+        "llmqa_batch_stream_events",
+        "Number of stream events analyzed per batch run.",
+        buckets=[0, 1, 5, 10, 25, 50, 100, 250, 500],
+    )
+
     _metrics_available = True
     logger.info("[metrics] Prometheus custom metrics registered successfully")
 
@@ -136,6 +151,8 @@ except ImportError:
     agent_loop_iterations_total = _noop  # type: ignore[assignment]
     agent_loop_errors_total = _noop      # type: ignore[assignment]
     action_executor_total = _noop        # type: ignore[assignment]
+    batch_analysis_total = _noop         # type: ignore[assignment]
+    batch_stream_events = _noop          # type: ignore[assignment]
 
     _metrics_available = False
 
