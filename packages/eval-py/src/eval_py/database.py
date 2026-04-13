@@ -25,10 +25,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 # ── Connection URL ─────────────────────────────────────────────────────────────
 # Read from environment — never hardcode credentials.
 # Default points to the Docker container we started in Step 3.
-DATABASE_URL = os.environ.get(
-    "DB_URL",
-    "postgresql://llmqa:llmqa_dev@localhost:5434/llmqa",
-)
+DATABASE_URL = os.environ.get("DB_URL") or "postgresql://llmqa:llmqa_dev@localhost:5434/llmqa"
 
 # ── Engine ─────────────────────────────────────────────────────────────────────
 # `pool_pre_ping=True` automatically reconnects if a connection has gone stale

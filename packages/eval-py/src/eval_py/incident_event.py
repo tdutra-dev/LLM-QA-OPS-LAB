@@ -17,8 +17,11 @@ Perché questo modello esiste:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from .models import StandardIncident
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -142,7 +145,7 @@ class IncidentEvent(BaseModel):
             event = IncidentEvent(...)
             result = evaluate(EvaluationRequest(incident=event.to_standard_incident()))
         """
-        from eval_py.models import StandardIncident
+        from .models import StandardIncident
 
         context: dict[str, Any] | None = None
         if self.error_type or self.affected_resource:
