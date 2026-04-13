@@ -1,5 +1,5 @@
 # ROADMAP — Tendresse Dutra
-> Ultimo aggiornamento: April 1, 2026
+> Ultimo aggiornamento: April 13, 2026
 > Scopo: tracciare obiettivi, percorso tecnico e stato del progetto.
 > **Questo file è il punto di partenza per qualsiasi nuova sessione di lavoro.**
 
@@ -122,6 +122,37 @@ Qualsiasi sistema (Java, Node, Python, AWS...)
 
 ---
 
+## LLM Evaluation Framework — già dentro questo progetto
+
+**Non è un secondo progetto.** È lo strato che risponde alla domanda naturale dopo aver
+costruito il batch analyzer: *"Il LLM sta analizzando bene gli incident?"*
+
+### Come si collegano le fasi alla valutazione
+
+| Fase roadmap | Contenuto | Connessione con LLM Evaluation |
+|---|---|---|
+| Fase 1 | `IncidentEvent` model | Il contratto tipizzato su cui si valuta ogni output |
+| Fase 2 | Ingestion layer `/ingest/*` | Genera i dati reali da usare come input di valutazione |
+| Fase 3 | Batch LLM Analysis | **Evaluator**: misura correctness e hallucination rate sull'output batch |
+| Fase 4 | RAG su storico | **RAG faithfulness**: la risposta è ancorata al contesto recuperato? |
+
+### `eval-py` è già il seme
+`packages/eval-py` — con `tests/test_step13.py` e `conftest.py` già strutturati — è il modulo
+di evaluation. Lo si estende gradualmente con:
+- **Correctness** — l'analysis LLM è coerente con la severity dell'incident?
+- **Hallucination rate** — il LLM ha inventato risorse o azioni non presenti nel contesto?
+- **RAG faithfulness** — la risposta cita il contesto recuperato o ragiona fuori da esso?
+
+Ogni metrica diventa un Prometheus counter, visibile su Grafana esattamente come
+latency e disponibilità. Questo è un sistema AI serio: ingestion + agentic pipeline
++ **evaluation layer**.
+
+### Perché rafforza il CV
+Non "due progetti separati" ma un sistema coerente con tre strati — esattamente l'architettura
+che aziende come quelle nel target (Trimble, scale-up AI) stanno costruendo adesso.
+
+---
+
 ## Percorso di apprendimento — 4 fasi
 
 ### FASE 1 — Python Expert (3-4 settimane) ← INIZIAMO DA QUI
@@ -169,32 +200,40 @@ Celery — quando scegli cosa"
 
 ---
 
-### FASE 3 — Redis Streams + Batch LLM Analysis (3 settimane)
-**Competenza target**: Redis avanzato, batch processing, OpenAI prompt engineering
+### FASE 3 — Redis Streams + Batch LLM Analysis + Evaluation (3 settimane)
+**Competenza target**: Redis avanzato, batch processing, OpenAI prompt engineering,
+LLM evaluation metrics
 
-**Cosa costruiamo**: il cuore del prodotto
+**Cosa costruiamo**: il cuore del prodotto + il primo strato di evaluation
 - Redis Stream come buffer degli incident normalizzati
 - Batch job ogni 5 minuti: leggi tutti gli eventi, costruisci prompt contestuale,
   chiama OpenAI una volta sola, salva l'analysis strutturata
+- **Evaluation module** (in `eval-py`): dopo ogni batch, valuta correctness e
+  hallucination rate dell'output LLM — esposto come metric Prometheus
 
 **Checkpoint interview**: "Redis Streams vs Pub/Sub vs List · consumer group e
 at-least-once delivery · come costruisci un prompt per analisi batch · structured
-output con OpenAI response_format"
+output con OpenAI response_format · come misuri hallucination senza ground truth"
 
 ---
 
-### FASE 4 — RAG su storico incident (2-3 settimane)
-**Competenza target**: embeddings, pgvector, similarity search, LlamaIndex
+### FASE 4 — RAG su storico incident + RAG Faithfulness (2-3 settimane)
+**Competenza target**: embeddings, pgvector, similarity search, LlamaIndex,
+RAG evaluation
 
-**Cosa costruiamo**: quando arriva un batch di incident, cerca nel DB se la stessa
-combinazione è già successa e cosa fu fatto — il sistema impara nel tempo.
+**Cosa costruiamo**: retrieval su storico + misurazione della qualità del retrieval
+- Quando arriva un batch di incident, cerca nel DB se la stessa combinazione è già
+  successa e cosa fu fatto — il sistema impara nel tempo
+- **RAG faithfulness evaluator** (in `eval-py`): la risposta del LLM è ancorata al
+  contesto recuperato o ha ragionato fuori da esso? Metric: `rag_faithfulness_score`
 
 Fix contestuale: attivare pgvector nel container (cambiare immagine docker-compose
 da `postgres:16-alpine` a `pgvector/pgvector:pg16` + migrare colonna embedding
 da text a vector(1536)).
 
 **Checkpoint interview**: "Cosine similarity vs dot product · perché 1536 dimensioni ·
-HNSW vs IVFFlat index · quando usi LlamaIndex vs pgvector diretto"
+HNSW vs IVFFlat index · quando usi LlamaIndex vs pgvector diretto · come misuri
+RAG faithfulness con OpenAI structured output"
 
 ---
 
@@ -229,7 +268,10 @@ Livello: Mid-level · Startup/scale-up · Remote Italy/EMEA
 |---|---|---|
 | Mar 31 – Apr 1, 2026 | Setup infrastruttura locale | eval-py su porta 8011, Prometheus UP, Grafana con dati live |
 | Apr 1, 2026 | Analisi architettura e career path | Visione AIOps chiarita, percorso 4 fasi definito |
-| Apr 1, 2026 (questa) | Struttura roadmap | Questo file |
+| Apr 1, 2026 | Struttura roadmap | Questo file |
+| Apr 13, 2026 | Connessione LLM-QA-OPS-LAB ↔ LLM Evaluation Framework | Chiarito che eval-py è lo strato di valutazione integrato nel progetto, non un progetto separato. Fasi 3 e 4 aggiornate con evaluation metrics. Roadmap aggiornata. Nessun codice ancora. |
+| Apr 13, 2026 | Fase 1 — IncidentEvent model | `incident_event.py` creato con typing completo, validators, `derive_incident_type()`, `to_standard_incident()`. 56 test green. |
+| Apr 13, 2026 | Fase 2 — Ingestion layer | `normalizers.py` (SpringBoot/Kafka/Webhook, Strategy pattern), `IngestResponse` in models.py, 3 endpoint `/ingest/*` in main.py. 134 test green. |
 
 ---
 
@@ -238,9 +280,12 @@ Livello: Mid-level · Startup/scale-up · Remote Italy/EMEA
 **Per riprendere il lavoro**: leggi questo file per intero, poi chiedi a Tendresse
 in quale fase si trova e cosa ha già fatto dell'ultima sessione.
 
-**Prossima azione concreta**: iniziare Fase 1 — creare
-`packages/eval-py/src/eval_py/incident_event.py` con il modello `IncidentEvent`
-completo di typing, validators, e test in `tests/test_incident_event.py`.
+**Prossima azione concreta**: Fase 1 e 2 completate. 134 test green.
+Prossimo step: Fase 3 — Redis Stream buffer + batch job (legge tutti gli eventi
+accumulati, chiama OpenAI una volta sola, salva l'analysis strutturata) +
+evaluation module per correctness e hallucination rate.
+
+**Fasi ancora da sviluppare**: Fase 3, 4.
 
 **Regola di lavoro**: ogni sessione produce codice reale nel progetto, non
 tutorial usa-e-getta. La spiegazione del perché viene sempre insieme al codice.

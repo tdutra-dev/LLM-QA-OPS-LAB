@@ -65,6 +65,25 @@ class EvaluationResult(BaseModel):
     tags: list[str] | None = None
 
 
+# ─── Fase 2: Ingestion layer models ──────────────────────────────────────────
+
+class IngestResponse(BaseModel):
+    """
+    Response returned by all /ingest/* endpoints.
+
+    Confirms that the raw payload was successfully normalized and evaluated.
+    The incident_id can be used to retrieve the full record later.
+    """
+    incident_id: str
+    source_system: str
+    service: str
+    severity: str
+    incident_type: str
+    evaluation_status: EvaluationStatus
+    evaluation_score: int
+    suggested_action: SuggestedAction | None = None
+
+
 # ─── Step 12: RAG models ──────────────────────────────────────────────────────
 
 class SimilarIncidentResponse(BaseModel):

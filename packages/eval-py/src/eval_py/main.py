@@ -24,6 +24,7 @@ from .models import (
     EvaluationRecord,
     EvaluationRequest,
     EvaluationResult,
+    IngestResponse,
     MetricsSummary,
     RagEvaluationResult,
     SimilarIncidentResponse,
@@ -31,6 +32,7 @@ from .models import (
     ToolCallingEvaluationResult,
 )
 from .store import IncidentStore, get_store
+from .normalizers import SpringBootNormalizer, KafkaNormalizer, WebhookNormalizer
 
 
 @asynccontextmanager
@@ -223,6 +225,119 @@ def evaluate_tool_call_endpoint(
     background_tasks.add_task(_persist_record, record)
     
     return result
+
+
+# ── Fase 2: Ingestion endpoints ───────────────────────────────────────────────
+
+def _ingest(
+    raw: dict,
+    normalizer,
+    background_tasks: BackgroundTasks,
+    store: IncidentStore,
+) -> IngestResponse:
+    """
+    Shared ingest logic used by all /ingest/* endpoints.
+
+    1. Normalize raw payload → IncidentEvent (via the given normalizer)
+    2. Convert to StandardIncident → evaluate with rule-based engine
+    3. Persist and return IngestResponse
+    """
+    event = normalizer.normalize(raw)
+    standard = event.to_standard_incident()
+    req = EvaluationRequest(incident=standard)
+    result = evaluate(req)
+
+    record = EvaluationRecord(
+        recordId=f"rec_{uuid4().hex[:8]}",
+        receivedAt=datetime.now(timezone.utc).isoformat(),
+        incident=standard,
+        result=result,
+    )
+    store.save(record)
+    m.eval_requests_total.labels(status=result.status).inc()
+    m.eval_score_histogram.observe(result.score)
+    redis_cache.invalidate(KEY_METRICS, KEY_ANALYTICS)
+    background_tasks.add_task(_persist_record, record)
+
+    return IngestResponse(
+        incident_id=event.incident_id,
+        source_system=event.source_system,
+        service=event.service,
+        severity=event.severity,
+        incident_type=standard.incidentType,
+        evaluation_status=result.status,
+        evaluation_score=result.score,
+        suggested_action=result.suggestedAction,
+    )
+
+
+@app.post("/ingest/http-log", response_model=IngestResponse, tags=["Ingestion"])
+def ingest_http_log(
+    raw: dict,
+    background_tasks: BackgroundTasks,
+    store: IncidentStore = Depends(get_store),
+) -> IngestResponse:
+    """
+    Ingest a structured log from a Spring Boot (or any JVM) application.
+
+    Accepts the raw JSON log payload as produced by Logback/Log4j2 with a
+    JSON encoder. Normalizes it into an IncidentEvent and immediately evaluates it.
+
+    Expected fields (all optional except `message`):
+    - `timestamp`  — ISO 8601 or epoch ms
+    - `level`      — ERROR | WARN | INFO | DEBUG (maps to severity)
+    - `logger`     — fully qualified class name (used to derive service name)
+    - `service`    — explicit service name (overrides logger-based derivation)
+    - `message`    — log message text
+    - `exception`  — exception class name (e.g. "NullPointerException")
+    - `requestUri` — HTTP endpoint involved (becomes affected_resource)
+    """
+    return _ingest(raw, SpringBootNormalizer(), background_tasks, store)
+
+
+@app.post("/ingest/kafka-event", response_model=IngestResponse, tags=["Ingestion"])
+def ingest_kafka_event(
+    raw: dict,
+    background_tasks: BackgroundTasks,
+    store: IncidentStore = Depends(get_store),
+) -> IngestResponse:
+    """
+    Ingest a Kafka consumer error, lag alert, or DLQ entry.
+
+    Accepts the raw event payload. Normalizes it into an IncidentEvent
+    and immediately evaluates it.
+
+    Expected fields (all optional):
+    - `topic`          — Kafka topic name (used as affected_resource)
+    - `consumer_group` — consumer group ID (used to derive service name)
+    - `timestamp`      — epoch ms (standard Kafka) or ISO 8601
+    - `error`          — human-readable error description
+    - `error_type`     — optional explicit error type
+    - `severity`       — optional severity hint
+    - `headers`        — dict with optional `service` key
+    """
+    return _ingest(raw, KafkaNormalizer(), background_tasks, store)
+
+
+@app.post("/ingest/webhook", response_model=IngestResponse, tags=["Ingestion"])
+def ingest_webhook(
+    raw: dict,
+    background_tasks: BackgroundTasks,
+    store: IncidentStore = Depends(get_store),
+) -> IngestResponse:
+    """
+    Ingest a generic webhook event (PagerDuty, GitHub Actions, Alertmanager, etc.).
+
+    The WebhookNormalizer searches for well-known field aliases so it can
+    handle heterogeneous payloads without per-source configuration.
+
+    Recognized aliases:
+    - severity:  `severity`, `level`, `priority`, `urgency`
+    - message:   `message`, `summary`, `description`, `text`, `body`, `title`
+    - service:   `service`, `service_name`, `component`, `source`, `app`
+    - timestamp: `timestamp`, `fired_at`, `created_at`, `time`
+    """
+    return _ingest(raw, WebhookNormalizer(), background_tasks, store)
 
 
 # ── Step 12: RAG-augmented evaluation endpoint ────────────────────────────────
