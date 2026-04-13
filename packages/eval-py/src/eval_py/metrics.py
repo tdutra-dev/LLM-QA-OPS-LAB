@@ -116,6 +116,21 @@ try:
         buckets=[0, 1, 5, 10, 25, 50, 100, 250, 500],
     )
 
+    # ── Fase 4: RAG Faithfulness metrics ─────────────────────────────────────
+    # Seconda metrica di LLM Evaluation: fedeltà rispetto agli eventi reali
+
+    rag_faithfulness_score = Histogram(
+        "llmqa_rag_faithfulness_score",
+        "RAG faithfulness score per batch analysis evaluation (0-100).",
+        buckets=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    )
+
+    faithfulness_total = Counter(
+        "llmqa_faithfulness_total",
+        "Total faithfulness evaluations by verdict.",
+        labelnames=["verdict"],  # faithful | partially_faithful | hallucinated
+    )
+
     _metrics_available = True
     logger.info("[metrics] Prometheus custom metrics registered successfully")
 
@@ -152,8 +167,8 @@ except ImportError:
     agent_loop_errors_total = _noop      # type: ignore[assignment]
     action_executor_total = _noop        # type: ignore[assignment]
     batch_analysis_total = _noop         # type: ignore[assignment]
-    batch_stream_events = _noop          # type: ignore[assignment]
-
+    batch_stream_events = _noop          # type: ignore[assignment]    rag_faithfulness_score = _noop        # type: ignore[assignment]
+    faithfulness_total = _noop            # type: ignore[assignment]
     _metrics_available = False
 
 

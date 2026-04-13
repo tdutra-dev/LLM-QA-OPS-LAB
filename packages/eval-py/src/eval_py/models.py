@@ -31,6 +31,44 @@ HealthTrend = Literal["stable", "improving", "worsening"]
 
 HallucinationRisk = Literal["low", "medium", "high"]
 
+FaithfulnessVerdict = Literal["faithful", "partially_faithful", "hallucinated"]
+
+
+# ─── Fase 4: RAG Faithfulness models ─────────────────────────────────────────
+
+class FaithfulnessRuleChecks(BaseModel):
+    """
+    Risultato dei singoli check di grounding (rule-based, deterministico).
+
+    Prodotto internamente da evaluate_faithfulness() prima di invocare
+    il LLM judge (opzionale). Esposto nel FaithfulnessResult per audit.
+    """
+    services_grounded_ratio: float = Field(ge=0.0, le=1.0)
+    incident_types_grounded_ratio: float = Field(ge=0.0, le=1.0)
+    critical_pattern_references_real_entity: bool
+    severity_assessment_consistent: bool
+
+
+class FaithfulnessResult(BaseModel):
+    """
+    Output del RAG Faithfulness Evaluator (Fase 4).
+
+    faithfulness_score: 0-100 — quanto il batch analysis result è ancorato
+                                 agli eventi reali (100=fully grounded)
+    verdict:            faithful | partially_faithful | hallucinated
+    rule_checks:        dettaglio dei singoli check di grounding
+    ungrounded_claims:  lista di claim nell'analisi non supportati dagli eventi
+    llm_used:           True se il LLM judge ha contribuito allo score
+    """
+    batch_id: str
+    evaluated_at: str                      # ISO 8601 UTC
+    faithfulness_score: int = Field(ge=0, le=100)
+    verdict: FaithfulnessVerdict
+    rule_checks: FaithfulnessRuleChecks
+    ungrounded_claims: list[str] = Field(default_factory=list)
+    llm_used: bool = False
+    raw_llm_response: str | None = None    # JSON grezzo del judge per audit
+
 
 # ─── Fase 3: Batch Analysis models ───────────────────────────────────────────
 

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Query
+from pydantic import BaseModel
 
 from .database import Base, engine, SessionLocal
 from .analytics import build_analytics_report
@@ -25,6 +26,7 @@ from .models import (
     EvaluationRecord,
     EvaluationRequest,
     EvaluationResult,
+    FaithfulnessResult,
     IngestResponse,
     MetricsSummary,
     RagEvaluationResult,
@@ -37,6 +39,7 @@ from .normalizers import SpringBootNormalizer, KafkaNormalizer, WebhookNormalize
 from .stream_buffer import push_to_stream, drain_stream, stream_length
 from .stream_buffer import STREAM_KEY
 from .batch_analyzer import run_batch_analysis
+from .rag_faithfulness import evaluate_faithfulness
 
 
 @asynccontextmanager
@@ -294,6 +297,48 @@ def stream_status_endpoint() -> dict:
         "length": stream_length(),
         "available": stream_available(),
     }
+
+
+# ── Fase 4: RAG Faithfulness endpoint ──────────────────────────────────────
+
+class FaithfulnessRequest(BaseModel):
+    """
+    Request body per POST /batch/faithfulness.
+
+    batch_result: il BatchAnalysisResult da valutare (prodotto da /batch/analyze)
+    events:       gli eventi raw su cui era basata l'analisi
+    """
+    batch_result: BatchAnalysisResult
+    events: list[dict]
+
+
+@app.post("/batch/faithfulness", response_model=FaithfulnessResult, tags=["Batch Analysis"])
+def faithfulness_endpoint(req: FaithfulnessRequest) -> FaithfulnessResult:
+    """
+    Valuta la fedeltà RAG di un batch analysis result rispetto agli eventi reali.
+
+    **Cosa misura**: quanto le claim del LLM sono ancorate ai dati che ha ricevuto.
+    Risponde alla domanda: *il LLM ha allucinato o ha ragionato sui fatti?*
+
+    **Due livelli**:
+    1. **Rule-based grounding** (sempre): verifica deterministicamente che
+       services, incident_types, critical_pattern e severity assessment
+       siano coerenti con gli eventi raw.
+    2. **LLM judge** (se OPENAI_API_KEY): un secondo LLM valuta la fedeltà
+       in modo indipendente. Score finale = (rule + llm) // 2.
+
+    **Metriche Prometheus**:
+    - `llmqa_rag_faithfulness_score` Histogram
+    - `llmqa_faithfulness_total` Counter per verdict
+
+    **Graceful degradation**: se OpenAI non è disponibile, usa solo rule-based.
+    """
+    result = evaluate_faithfulness(req.batch_result, req.events)
+
+    m.rag_faithfulness_score.observe(result.faithfulness_score)
+    m.faithfulness_total.labels(verdict=result.verdict).inc()
+
+    return result
 
 
 # ── Fase 2: Ingestion endpoints ───────────────────────────────────────────────
