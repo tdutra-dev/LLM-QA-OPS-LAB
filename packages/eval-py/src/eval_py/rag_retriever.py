@@ -189,10 +189,10 @@ def find_similar_incidents(
                 suggested_action,
                 eval_status,
                 eval_score,
-                (embedding <=> :query_vec::vector) AS distance
+                (embedding <=> CAST(:query_vec AS vector)) AS distance
             FROM evaluation_records
             WHERE embedding IS NOT NULL
-            ORDER BY embedding <=> :query_vec::vector
+            ORDER BY embedding <=> CAST(:query_vec AS vector)
             LIMIT :top_k
         """)
 
