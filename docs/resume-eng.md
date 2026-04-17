@@ -1,5 +1,5 @@
 # Tendresse Dutra
-**Backend Engineer · Python · FastAPI · LLM Systems · RAG · LangGraph · Kubernetes**
+**AI Backend Engineer · Python · LLMOps · Production AI Systems**
 linkedin.com/in/tendresse-dutra · github.com/tdutra-dev
 Open to full-time & freelance · Remote / Italy
 
@@ -9,63 +9,63 @@ Open to full-time & freelance · Remote / Italy
 
 ## Profile
 
-Backend engineer with 10+ years in distributed systems, currently focused on production-grade AI backends. I build systems where LLM components are operational services — observable with Prometheus, tested in CI, deployed on Kubernetes. I bridge enterprise backend reliability (Java, Python, C#) with modern AI tooling (RAG, pgvector, LlamaIndex, OpenAI function calling).
+Backend engineer with 10+ years in distributed systems.
+
+I made a deliberate switch: from deterministic software — rigid inputs, predictable transformations, defined outputs — to probabilistic AI systems, where inputs are fuzzy, transformations reason over context, and outputs are emergent.
+
+That shift changed how I think about reliability. In traditional systems, correctness is binary. In AI systems, you need pipelines that handle uncertainty gracefully: structured ingestion, grounded retrieval, observable behavior, and failure modes you can actually debug.
+
+I build that infrastructure — agentic pipelines, batch LLM analysis with built-in faithfulness evaluation, RAG with pgvector, and the observability layer that makes probabilistic system behavior measurable and debuggable.
 
 ---
 
 ## Featured Project
 
-**LLM-QA-OPS-LAB** — Autonomous AI Agent for LLM Pipeline Monitoring
+**LLM-QA-OPS-LAB** — AIOps Intelligence Layer for Production Incident Analysis
 github.com/tdutra-dev/LLM-QA-OPS-LAB
 
-- Autonomous agent loop: perceives incidents → evaluates via **OpenAI function calling** → executes remediation actions (restart, scale, alert, escalate)
-- **RAG pipeline**: pgvector cosine similarity (`<=>` operator) + OpenAI `text-embedding-3-small` embeddings + LlamaIndex `VectorStoreIndex` + `IngestionPipeline`
-- **LangGraph agentic pipeline**: typed `StateGraph` (TypedDict state), 6 nodes (perceive → retrieve_context → evaluate → store → act → audit), conditional routing, `MemorySaver` checkpointing — replaces the raw agent loop from Step 8
-- **Prometheus observability**: 9 custom metrics, SLO alerting rules (availability, latency p95, RAG hit rate), 10-panel Grafana dashboard auto-provisioned
-- **CI/CD**: GitHub Actions — ruff, pytest (19 unit tests), ESLint, vitest → Docker push to GHCR → Trivy container security scan
-- **Kubernetes**: 18 manifests, Kustomize, least-privilege NetworkPolicy per pod
-- Cross-language monorepo: TypeScript (pnpm workspaces, Zod, Vitest) + Python (FastAPI, SQLAlchemy 2, Pydantic V2)
+- **Ingestion layer**: accepts incidents from any source (Spring Boot, Kafka, webhooks), normalizes via pluggable validators, buffers in Redis Streams, and batches per time window — one LLM call per window; LLM self-reports hallucination risk and confidence score
+- **LLM Evaluation layer**: faithfulness evaluator combining rule-based grounding checks with LLM-as-judge; classifies each batch as faithful, partially faithful, or hallucinated; tracked in Prometheus
+- **RAG pipeline**: pgvector + LlamaIndex with cosine similarity — grounds LLM output in real historical incidents before each analysis
+- **Agentic pipeline with LangGraph**: typed StateGraph across perceive → retrieve → evaluate → store → act → audit, with conditional routing and conversation memory
+- **Observability**: custom Prometheus metrics covering hallucination rate, faithfulness distribution, RAG hit rate, and batch latency; SLO alerting, Grafana auto-provisioned
+- **Production-ready**: full test suite with zero external dependencies, Docker, Kubernetes, Trivy CVE scan in CI
+- **Cross-language monorepo**: Python (FastAPI, SQLAlchemy 2, Pydantic V2) + TypeScript (Zod, Vitest)
 
-`Python · FastAPI · PostgreSQL · pgvector · Redis · OpenAI API · RAG · LlamaIndex · LangGraph · Prometheus · Grafana · Docker · Kubernetes · TypeScript`
+`Python · FastAPI · PostgreSQL · pgvector · Redis Streams · OpenAI API · LlamaIndex · LangGraph · LLMOps · Prometheus · Grafana · Docker · Kubernetes · TypeScript`
 
 ---
 
 ## Technical Skills
 
-**AI / LLM:** OpenAI API · Function Calling · Structured Outputs · RAG · pgvector · LlamaIndex · **LangGraph** · Prompt Engineering · AI Reliability
-**Python:** FastAPI · SQLAlchemy 2 · Pydantic V2 · Pandas · Polars · Pytest · Dash · Plotly
-**TypeScript / Node.js:** pnpm workspaces · Zod · Vitest · ESLint · NestJS
-**Database:** PostgreSQL · Redis · MySQL · MongoDB · SQL Server
-**Observability:** Prometheus · Grafana · Custom Metrics · SLO/SLA · Elasticsearch
-**Infrastructure:** Docker · Kubernetes · Kustomize · GitHub Actions CI/CD · Kafka · Event-Driven Architecture · Microservices
+**AI / LLM:** OpenAI API · Function Calling · Structured Outputs · RAG · pgvector · LlamaIndex · LangGraph · Prompt Engineering · AIOps · LLMOps · Batch Event Analysis · Faithfulness Evaluation
+**Python:** FastAPI · SQLAlchemy 2 · Pydantic V2 · Pandas · Pytest · Dash · Plotly
+**TypeScript / Node.js:** Zod · Vitest · ESLint · NestJS
+**Database:** PostgreSQL · Redis Streams · MySQL · MongoDB · SQL Server
+**Observability:** Prometheus · Grafana · Elasticsearch
+**Infrastructure:** Docker · Kubernetes · GitHub Actions · CI/CD · Kafka · Event-Driven · Microservices
 **Backend:** Java (Spring Boot / WebFlux) · C# (.NET) · REST APIs
 
 ---
 
 ## Experience
 
-**Software Engineer — Swag International** *(Crypto Exchange, 2022–2025)*
+**Software Engineer — Swag International** *(Crypto Exchange, 08/2022–2025)*
 - Backend microservices in production for a fintech/crypto platform (Java Spring Boot, MySQL)
-- Real-time event-driven pipelines with Kafka/Confluent for cross-system data integration
-- Observability stack with Elasticsearch and structured logging; alert-driven monitoring
-- Automated statistical reporting via Telegram bots; transactional integrations via Customer.io
+- Event-driven pipelines with Kafka/Confluent enabling real-time data sync across 12+ modules
+- Observability stack with Elasticsearch and structured logging; alert-driven monitoring reducing mean time to incident detection from hours to minutes
+- Automated statistical reporting via Telegram bots
+- Transactional communication integrated with Customer.io — developed backend workflow and used Liquid reducing 60% of redundancy in email templates
 
-**Backend Developer — Analytics Intelligence, Next4B** *(2022)*
+**Backend Developer — Analytics Intelligence, Next4B** *(03/2022–07/2022)*
 - Python backend APIs and MongoDB data layer for financial reporting dashboards
 - Data processing and aggregation pipelines for client-facing analytics and charts
-- First production exposure to **Grafana** dashboards for data visualization and monitoring
-- Authored **OpenAPI (Swagger) specs manually** — prior to framework-generated docs — building a solid understanding of the underlying contract standard
+- Visualization and monitoring data with Grafana
 
-**Systems Analyst / Backend Developer — I.CON** *(2019–2021)*
-- C#/.NET backend for an airport operations management platform
-- Focus on system reliability, workflow automation, and internal tooling optimization
+**Prior experience — Systems Analyst & Backend Developer** *(2014–2021)*  
+*I.CON, Cegeka, FIAT (Italy & Brazil)*
 
-**Backend Developer — Cegeka** *(2017–2019)*
-- C#/.NET components for enterprise systems; internal workflow tooling and service maintenance
-
-**Systems Analyst — FIAT** *(Italy & Brazil, 2014–2017)*
-- C#/.NET backend systems at scale across Italy and Brazil
-- Optimized SQL Server stored procedures and batch jobs for data pipeline performance
+C#/.NET enterprise backends across airport operations, enterprise workflow systems, and automotive manufacturing at scale. Focus on system reliability, SQL Server performance optimization, and cross-country delivery.
 
 ---
 
